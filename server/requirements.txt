@@ -1,0 +1,43 @@
+# FastAPI Core Dependencies
+fastapi>=0.95.0,<1.0.0
+uvicorn[standard]>=0.22.0,<1.0.0
+python-multipart>=0.0.6
+
+# Database Dependencies (MongoDB)
+motor>=3.3.0,<4.0.0
+pymongo>=4.6.0,<5.0.0
+beanie>=1.23.0,<2.0.0
+
+# Authentication & Security Dependencies
+PyJWT>=2.7.0,<3.0.0
+passlib[bcrypt]>=1.7.4,<2.0.0
+bcrypt>=4.0.0,<5.0.0
+
+# Pydantic & Settings
+pydantic>=2.0.0,<3.0.0
+pydantic-settings>=2.0.0,<3.0.0
+email-validator>=2.0.0,<3.0.0
+
+# Environment & Configuration
+python-dotenv>=1.0.0,<2.0.0
+
+# File Handling & HTTP
+aiofiles>=23.0.0,<24.0.0
+requests>=2.28.0,<3.0.0
+
+# OpenAI API (Core OCR Engine)
+openai>=1.0.0,<2.0.0
+
+# Image Processing (Required for OpenAI OCR)
+Pillow>=10.0.0,<11.0.0
+
+# Excel Processing (Required for .xls/.xlsx files)
+pandas>=2.0.0,<3.0.0
+openpyxl>=3.1.0,<4.0.0
+xlrd>=2.0.0,<3.0.0
+
+# PDF Processing (Required for PDF OCR)
+PyMuPDF>=1.23.0,<2.0.0  # PDF to image conversion and text extraction
+
+# Core system dependencies
+typing-extensions>=4.5.0,<5.0.0 

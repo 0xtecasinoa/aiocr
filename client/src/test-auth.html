@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Flow Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        button { margin: 5px; padding: 10px; }
+        .status { font-weight: bold; color: #333; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Authentication Flow Test</h1>
+    
+    <div class="section">
+        <h3>Current Authentication Status</h3>
+        <p class="status" id="authStatus">Loading...</p>
+        <p id="userInfo"></p>
+        <p id="lastValidation"></p>
+    </div>
+    
+    <div class="section">
+        <h3>Test Actions</h3>
+        <button onclick="testTokenValidation()">Validate Token</button>
+        <button onclick="testLogout()">Logout</button>
+        <button onclick="checkLocalStorage()">Check Local Storage</button>
+        <button onclick="clearStorage()">Clear Storage</button>
+    </div>
+    
+    <div class="section">
+        <h3>Test Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Simple test script to verify auth flow
+        function updateStatus() {
+            const token = localStorage.getItem('access_token');
+            const refreshToken = localStorage.getItem('refresh_token');
+            const statusEl = document.getElementById('authStatus');
+            const userEl = document.getElementById('userInfo');
+            
+            if (token) {
+                statusEl.textContent = 'Token exists';
+                statusEl.className = 'status success';
+                userEl.textContent = `Token: ${token.substring(0, 20)}...`;
+            } else {
+                statusEl.textContent = 'No token found';
+                statusEl.className = 'status error';
+                userEl.textContent = '';
+            }
+        }
+        
+        function addResult(message, isError = false) {
+            const resultsEl = document.getElementById('results');
+            const p = document.createElement('p');
+            p.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            p.className = isError ? 'error' : 'success';
+            resultsEl.appendChild(p);
+        }
+        
+        async function testTokenValidation() {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                addResult('No token to validate', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/v1/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const user = await response.json();
+                    addResult(`Token valid - User: ${user.username}`);
+                } else {
+                    addResult(`Token invalid - Status: ${response.status}`, true);
+                }
+            } catch (error) {
+                addResult(`Validation error: ${error.message}`, true);
+            }
+        }
+        
+        function testLogout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            addResult('Tokens cleared from storage');
+            updateStatus();
+        }
+        
+        function checkLocalStorage() {
+            const token = localStorage.getItem('access_token');
+            const refresh = localStorage.getItem('refresh_token');
+            addResult(`Access Token: ${token ? 'Present' : 'None'}`);
+            addResult(`Refresh Token: ${refresh ? 'Present' : 'None'}`);
+        }
+        
+        function clearStorage() {
+            localStorage.clear();
+            addResult('All localStorage cleared');
+            updateStatus();
+        }
+        
+        // Initialize
+        updateStatus();
+        setInterval(updateStatus, 5000); // Update every 5 seconds
+    </script>
+</body>
+</html> 
