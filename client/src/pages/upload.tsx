@@ -98,7 +98,7 @@ export default function UploadPage() {
       
       // Check if backend is available
       try {
-        const response = await fetch(env.API_BASE_URL + '/health', { method: 'GET' });
+        const response = await fetch(env.API_BASE_URL + '/api/health', { method: 'GET' });
         if (!response.ok) {
           throw new Error('バックエンドサーバーに接続できません。サーバーが起動しているか確認してください。');
         }
