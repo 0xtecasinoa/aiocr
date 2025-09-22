@@ -97,14 +97,14 @@ export default function UploadPage() {
       }
       
       // Check if backend is available
-      try {
+      /* try {
         const response = await fetch(env.API_BASE_URL + '/api/health', { method: 'GET' });
         if (!response.ok) {
           throw new Error('バックエンドサーバーに接続できません。サーバーが起動しているか確認してください。');
         }
       } catch (error) {
         throw new Error('バックエンドサーバーに接続できません。サーバーが起動しているか確認してください。');
-      }
+      } */
       
       // Simulate progress during actual upload
       const progressInterval = setInterval(() => {
