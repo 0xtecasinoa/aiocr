@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { authManager } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, ArrowRight, User, Building2, Phone } from "lucide-react";
+import conexLogo from "@/assets/conex_logo.png";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -170,7 +171,7 @@ export default function LoginPage() {
               <div className="relative inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-gray-50 to-white backdrop-blur-2xl rounded-[2rem] border-2 border-gray-200 shadow-2xl">
                 <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl border border-gray-200">
                   <img 
-                    src="/src/assets/conex_logo.png" 
+                    src={conexLogo} 
                     alt="Conex Logo" 
                     className="w-16 h-16 object-contain drop-shadow-sm"
                   />
