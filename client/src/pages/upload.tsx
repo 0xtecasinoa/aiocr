@@ -9,6 +9,7 @@ import { authManager } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api";
 import { TrashIcon, FolderIcon, FileIcon } from "lucide-react";
+import { env } from "@/lib/env";
 
 interface UploadedFileInfo {
   name: string;
@@ -97,7 +98,7 @@ export default function UploadPage() {
       
       // Check if backend is available
       try {
-        const response = await fetch('http://127.0.0.1:8000/health', { method: 'GET' });
+        const response = await fetch(env.API_BASE_URL + '/health', { method: 'GET' });
         if (!response.ok) {
           throw new Error('バックエンドサーバーに接続できません。サーバーが起動しているか確認してください。');
         }
