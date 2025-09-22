@@ -493,6 +493,9 @@ class OpenAIOCRService:
                     except:
                         pass
             
+            # Store total pages before closing document
+            total_pages = len(pdf_document)
+            
             pdf_document.close()
             
             # Calculate final confidence
@@ -514,7 +517,7 @@ class OpenAIOCRService:
                 "structured_data": {
                     **all_structured_data,
                     "file_type": "pdf",
-                    "total_pages": len(pdf_document),
+                    "total_pages": total_pages,
                     "processed_pages": processed_pages,
                     "total_text_length": len(raw_text)
                 },
@@ -526,7 +529,7 @@ class OpenAIOCRService:
                 "processing_time_ms": processing_time_ms
             }
             
-            print(f"✅ PDF OCR SUCCESS: Processed {processed_pages}/{len(pdf_document)} pages, {len(raw_text)} characters in {processing_time_ms}ms")
+            print(f"✅ PDF OCR SUCCESS: Processed {processed_pages}/{total_pages} pages, {len(raw_text)} characters in {processing_time_ms}ms")
             
             return result
             

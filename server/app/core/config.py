@@ -94,7 +94,8 @@ class Settings(BaseSettings):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, list):
             return v
-        return [
+        # Default origins - add your production domain here
+        default_origins = [
             "http://localhost:3000", 
             "http://localhost:5173", 
             "http://localhost:5174",
@@ -102,6 +103,10 @@ class Settings(BaseSettings):
             "http://127.0.0.1:5174",
             "http://127.0.0.1:3000"
         ]
+        # Add production origins from environment
+        production_origins = os.getenv("PRODUCTION_ORIGINS", "").split(",")
+        production_origins = [origin.strip() for origin in production_origins if origin.strip()]
+        return default_origins + production_origins
     
     @field_validator("ALLOWED_EXTENSIONS", mode="before")
     @classmethod
