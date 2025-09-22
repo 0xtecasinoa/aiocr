@@ -13,6 +13,7 @@ import {
   MenuIcon,
   Building2Icon
 } from "lucide-react";
+import conexLogo from "@/assets/conex_logo.png";
 
 const navigation = [
   {
@@ -56,7 +57,7 @@ const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => {
         <div className="flex items-center space-x-3">
           <div className="w-16 h-16 lg:w-20 lg:h-20 flex items-center justify-center">
             <img 
-              src="/src/assets/conex_logo.png" 
+              src={conexLogo} 
               alt="Conex Logo" 
               className="w-16 h-16 lg:w-20 lg:h-20 object-contain"
             />
