@@ -56,7 +56,7 @@ const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => {
         <div className="flex items-center space-x-3">
           <div className="w-16 h-16 lg:w-20 lg:h-20 flex items-center justify-center">
             <img 
-              src="/conex_logo.png" 
+              src="/src/assets/conex_logo.png" 
               alt="Conex Logo" 
               className="w-16 h-16 lg:w-20 lg:h-20 object-contain"
             />

@@ -213,7 +213,7 @@ class OCRProcessor:
             if not self.openai_ocr_service or not self.openai_ocr_service.client:
                 raise Exception("OpenAI OCR service is not available. Please configure OPENAI_API_KEY.")
             
-            ocr_result = await self.openai_ocr_service.extract_text_from_file(
+                ocr_result = await self.openai_ocr_service.extract_text_from_file(
                     file_path=file_upload.file_path,
                 language=language,
                 preprocessing=preprocessing,
