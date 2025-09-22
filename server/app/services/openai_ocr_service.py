@@ -485,18 +485,30 @@ class OpenAIOCRService:
                     logger.warning(f"Failed to process PDF page {page_num + 1}: {page_error}")
                     # Try to extract text directly from PDF
                     try:
+                        # Check if document is still valid
+                        if pdf_document.is_closed:
+                            logger.error(f"PDF document is closed, cannot process page {page_num + 1}")
+                            break
                         page_text = page.get_text()
                         if page_text.strip():
                             all_text.append(f"=== Page {page_num + 1} (Direct) ===\n{page_text}")
                             processed_pages += 1
                             total_confidence += 70.0
-                    except:
-                        pass
+                    except Exception as direct_error:
+                        logger.warning(f"Direct text extraction failed for page {page_num + 1}: {direct_error}")
+                        # If document is closed, stop processing
+                        if "document closed" in str(direct_error).lower():
+                            logger.error("PDF document closed unexpectedly, stopping processing")
+                            break
             
             # Store total pages before closing document
             total_pages = len(pdf_document)
             
-            pdf_document.close()
+            # Close document safely
+            try:
+                pdf_document.close()
+            except Exception as close_error:
+                logger.warning(f"Error closing PDF document: {close_error}")
             
             # Calculate final confidence
             final_confidence = total_confidence / max(processed_pages, 1) if processed_pages > 0 else 0
@@ -539,6 +551,12 @@ class OpenAIOCRService:
             return await self._extract_pdf_fallback(pdf_path, language, confidence_threshold)
         except Exception as e:
             logger.error(f"PDF OCR processing failed: {str(e)}")
+            # Ensure PDF document is closed even on error
+            try:
+                if 'pdf_document' in locals():
+                    pdf_document.close()
+            except:
+                pass
             raise ValueError(f"PDF OCR processing failed: {str(e)}")
     
     async def _extract_pdf_fallback(self, pdf_path: str, language: str, confidence_threshold: float) -> Dict[str, Any]:
