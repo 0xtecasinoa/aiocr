@@ -725,7 +725,6 @@ async def serve_file(
         
         # Safely handle filename encoding for Unicode characters (Japanese, etc.)
         import urllib.parse
-        import os
         
         # Create a safe filename for Content-Disposition header
         safe_filename = None
