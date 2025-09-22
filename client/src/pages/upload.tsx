@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ export default function UploadPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const currentUser = authManager.getState().user;
+  const [, setLocation] = useLocation();
 
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
@@ -97,14 +99,14 @@ export default function UploadPage() {
       }
       
       // Check if backend is available
-      /* try {
-        const response = await fetch(env.API_BASE_URL + '/api/health', { method: 'GET' });
+      try {
+        const response = await fetch(`${env.API_BASE_URL}/health`, { method: 'GET' });
         if (!response.ok) {
           throw new Error('バックエンドサーバーに接続できません。サーバーが起動しているか確認してください。');
         }
       } catch (error) {
         throw new Error('バックエンドサーバーに接続できません。サーバーが起動しているか確認してください。');
-      } */
+      }
       
       // Simulate progress during actual upload
       const progressInterval = setInterval(() => {
@@ -145,7 +147,7 @@ export default function UploadPage() {
       
         // Redirect to conversion page after successful upload
         setTimeout(() => {
-          window.location.href = '/conversion';
+          setLocation('/conversion');
         }, 1500);
       }
       
@@ -228,7 +230,7 @@ export default function UploadPage() {
         });
         
         // Redirect to data list page to show conversion progress
-        window.location.href = '/data-list';
+        setLocation('/data-list');
       }
     } catch (error) {
       console.error('Conversion error:', error);
