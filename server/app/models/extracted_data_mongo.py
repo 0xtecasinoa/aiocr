@@ -1,5 +1,5 @@
 from beanie import Document
-from pydantic import Field, ConfigDict
+from pydantic import Field, ConfigDict, field_validator
 from typing import Optional, Dict, Any, List, Union
 from datetime import datetime
 from bson import ObjectId
@@ -53,6 +53,58 @@ class ExtractedData(Document):
     is_multi_product: bool = False  # Whether this item is part of a multi-product file
     total_products_in_file: Optional[int] = 1  # Total number of products in the source file
     product_index: Optional[int] = None  # Index of this product within the file (1, 2, 3, etc.)
+    
+    @field_validator('stock', mode='before')
+    @classmethod
+    def validate_stock(cls, v):
+        """Validate stock field - convert empty strings to None."""
+        if v == '' or v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return int(v) if v.strip() else None
+            except (ValueError, TypeError):
+                return None
+        return v
+    
+    @field_validator('price', mode='before')
+    @classmethod
+    def validate_price(cls, v):
+        """Validate price field - convert empty strings to None."""
+        if v == '' or v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return float(v) if v.strip() else None
+            except (ValueError, TypeError):
+                return None
+        return v
+    
+    @field_validator('total_products_in_file', mode='before')
+    @classmethod
+    def validate_total_products_in_file(cls, v):
+        """Validate total_products_in_file field - convert empty strings to None."""
+        if v == '' or v is None:
+            return 1  # Default to 1
+        if isinstance(v, str):
+            try:
+                return int(v) if v.strip() else 1
+            except (ValueError, TypeError):
+                return 1
+        return v
+    
+    @field_validator('product_index', mode='before')
+    @classmethod
+    def validate_product_index(cls, v):
+        """Validate product_index field - convert empty strings to None."""
+        if v == '' or v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return int(v) if v.strip() else None
+            except (ValueError, TypeError):
+                return None
+        return v
     
     # Review and validation
     needs_review: bool = False

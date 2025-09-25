@@ -32,6 +32,8 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
   
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [relatedProducts, setRelatedProducts] = useState<ExtractedData[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<ExtractedData | null>(null);
+  const [isIndividualEditMode, setIsIndividualEditMode] = useState(false);
 
   // Fetch all extracted data to find related products
   const { data: allExtractedData } = useQuery({
@@ -41,11 +43,16 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data: UpdateExtractedData) => apiClient.updateExtractedData(item.id, data),
+    mutationFn: (data: UpdateExtractedData) => {
+      // Use selectedProduct ID if in individual edit mode, otherwise use original item ID
+      const targetId = isIndividualEditMode && selectedProduct ? selectedProduct.id : item.id;
+      return apiClient.updateExtractedData(targetId, data);
+    },
     onSuccess: () => {
+      const targetName = isIndividualEditMode && selectedProduct ? selectedProduct.productName : item.productName;
       toast({
         title: "保存完了",
-        description: "データが正常に更新されました。",
+        description: `${targetName || 'データ'}が正常に更新されました。`,
       });
       queryClient.invalidateQueries({ queryKey: ['extractedData'] });
       queryClient.invalidateQueries({ queryKey: ['allExtractedData'] });
@@ -89,7 +96,12 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
         return itemSourceFileId === sourceFileId;
       });
 
-      setRelatedProducts(relatedItems);
+      // If no related items found, include the current item itself
+      if (relatedItems.length === 0) {
+        setRelatedProducts([item]);
+      } else {
+        setRelatedProducts(relatedItems);
+      }
     }
   }, [item, allExtractedData]);
 
@@ -119,13 +131,97 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
   };
 
   const handleSave = () => {
-    updateMutation.mutate(formData);
+    // Convert and validate data before sending
+    const processedData = { ...formData };
+    
+    // Convert price to number or null
+    if (processedData.price === '' || processedData.price === null || processedData.price === undefined) {
+      processedData.price = null;
+    } else if (typeof processedData.price === 'string') {
+      const priceNum = parseFloat(processedData.price);
+      processedData.price = isNaN(priceNum) ? null : priceNum;
+    }
+    
+    // Convert stock to integer or null
+    if (processedData.stock === '' || processedData.stock === null || processedData.stock === undefined) {
+      processedData.stock = null;
+    } else if (typeof processedData.stock === 'string') {
+      const stockNum = parseInt(processedData.stock, 10);
+      processedData.stock = isNaN(stockNum) ? null : stockNum;
+    }
+    
+    // Map camelCase to snake_case for backend compatibility
+    const backendData = {
+      product_name: processedData.productName,
+      productName: processedData.productName, // Keep both for compatibility
+      sku: processedData.sku,
+      jan_code: processedData.janCode,
+      janCode: processedData.janCode, // Keep both for compatibility
+      price: processedData.price,
+      stock: processedData.stock,
+      category: processedData.category,
+      brand: processedData.brand,
+      manufacturer: processedData.manufacturer,
+      description: processedData.description,
+      weight: processedData.weight,
+      color: processedData.color,
+      material: processedData.material,
+      origin: processedData.origin,
+      warranty: processedData.warranty
+    };
+    
+    updateMutation.mutate(backendData);
   };
 
   const handleProductClick = (product: ExtractedData) => {
-    if (onProductSelect) {
-      onProductSelect(product);
-    }
+    setSelectedProduct(product);
+    setIsIndividualEditMode(true);
+    
+    // Update form data with selected product
+    const newFormData: Record<string, any> = {};
+    editableFields.forEach(field => {
+      if (field.key === 'productName') {
+        newFormData[field.key] = product.productName || '';
+      } else if (field.key === 'price') {
+        newFormData[field.key] = product.price || '';
+      } else if (field.key === 'stock') {
+        newFormData[field.key] = product.stock || '';
+      } else if (field.key === 'category') {
+        newFormData[field.key] = product.category || '';
+      } else if (field.key === 'brand') {
+        newFormData[field.key] = product.brand || '';
+      } else if (field.key === 'manufacturer') {
+        newFormData[field.key] = product.manufacturer || '';
+      } else if (field.key === 'description') {
+        newFormData[field.key] = product.description || '';
+      } else if (field.key === 'weight') {
+        newFormData[field.key] = product.weight || '';
+      } else if (field.key === 'color') {
+        newFormData[field.key] = product.color || '';
+      } else if (field.key === 'material') {
+        newFormData[field.key] = product.material || '';
+      } else if (field.key === 'origin') {
+        newFormData[field.key] = product.origin || '';
+      } else if (field.key === 'warranty') {
+        newFormData[field.key] = product.warranty || '';
+      } else {
+        // Handle additional fields from structured_data
+        const structuredData = (product as any).structured_data || {};
+        if (field.key === 'sku') {
+          newFormData[field.key] = (product as any).sku || structuredData.sku || '';
+        } else if (field.key === 'janCode') {
+          newFormData[field.key] = (product as any).jan_code || structuredData.jan_code || '';
+        } else if (field.key === 'releaseDate') {
+          newFormData[field.key] = (product as any).release_date || structuredData.release_date || '';
+        }
+      }
+    });
+    setFormData(newFormData);
+  };
+
+  const handleBackToList = () => {
+    setIsIndividualEditMode(false);
+    setSelectedProduct(null);
   };
 
   const getStatusBadge = (currentItem: ExtractedData) => {
@@ -232,45 +328,10 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
               </Card>
             </div>
 
-            {/* Right side - Editable form and multi-product table */}
+            {/* Right side - Conditional display based on mode */}
             <div className="space-y-6">
-              {/* Product Data Editing Form */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>商品データ編集</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[400px] pr-4">
-                    <div className="space-y-4">
-                      {editableFields.map((field) => (
-                        <div key={field.key}>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {field.label} {field.required && <span className="text-red-500">*</span>}
-                          </label>
-                          {field.type === 'textarea' ? (
-                            <textarea
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              rows={3}
-                              value={formData[field.key] || ''}
-                              onChange={(e) => handleInputChange(field.key, e.target.value)}
-                            />
-                          ) : (
-                            <Input
-                              type={field.type}
-                              value={formData[field.key] || ''}
-                              onChange={(e) => handleInputChange(field.key, e.target.value)}
-                              className="w-full"
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-
-              {/* Multi-Product Table */}
-              {relatedProducts.length > 1 && (
+              {/* Multi-Product Table (一覧画面イメージ) - Show when not in individual edit mode and there are multiple products */}
+              {!isIndividualEditMode && relatedProducts.length > 1 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>一覧ごとの編集</CardTitle>
@@ -353,6 +414,227 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                         </tbody>
                       </table>
                     </div>
+                  </CardContent>
+                </Card>
+                              )}
+
+              {/* Single Product Display (単一商品表示) - Show when not in individual edit mode and there's only one product */}
+              {!isIndividualEditMode && relatedProducts.length <= 1 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>個別商品リスト</CardTitle>
+                    <p className="text-sm text-gray-600">
+                      この商品をクリックして個別編集を開始できます
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {relatedProducts.map((product) => (
+                        <div
+                          key={product.id}
+                          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={() => handleProductClick(product)}
+                        >
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 mb-1">商品名</div>
+                              <div className="text-sm text-gray-900 font-semibold">
+                                {product.productName || '未入力'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 mb-1">JANコード</div>
+                              <div className={`text-sm px-2 py-1 rounded ${(product as any).jan_code ? 'bg-yellow-100 text-gray-900' : 'bg-gray-100 text-gray-500'}`}>
+                                {(product as any).jan_code || '未入力'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 mb-1">価格</div>
+                              <div className="text-sm text-gray-900">
+                                {product.price ? `¥${Number(product.price).toLocaleString()}` : '未入力'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 mb-1">カテゴリ</div>
+                              <div className="text-sm text-gray-900">
+                                {product.category || '未入力'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 mb-1">ブランド</div>
+                              <div className="text-sm text-gray-900">
+                                {product.brand || '未入力'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 mb-1">製造元</div>
+                              <div className="text-sm text-gray-900">
+                                {product.manufacturer || '未入力'}
+                              </div>
+                            </div>
+                            <div className="col-span-2">
+                              <div className="text-sm font-medium text-gray-700 mb-1">商品説明</div>
+                              <div className="text-sm text-gray-900 line-clamp-2">
+                                {product.description || '未入力'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs text-gray-500">
+                                発売予定日: {(product as any).release_date || '未定'}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                                  個別商品
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  クリックして編集
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Individual Edit Form (個別編集画面イメージ) - Show when in individual edit mode */}
+              {isIndividualEditMode && selectedProduct && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>項目ごとの編集</CardTitle>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {selectedProduct.productName || '商品名未設定'}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBackToList}
+                    >
+                      一覧に戻る
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[600px] pr-4">
+                                             <div className="grid grid-cols-1 gap-6">
+                         {/* 商品名 */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            商品名 <span className="text-red-500">*</span>
+                          </label>
+                          <Input
+                            value={formData.productName || ''}
+                            onChange={(e) => handleInputChange('productName', e.target.value)}
+                            className="w-full"
+                            placeholder="ソフビタイムシリーズ ポケモンコインバンク"
+                          />
+                        </div>
+
+                        {/* SKU */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">SKU</label>
+                          <Input
+                            value={formData.sku || ''}
+                            onChange={(e) => handleInputChange('sku', e.target.value)}
+                            className="w-full"
+                            placeholder="ST-03CB, ST-04CB, ST-05CB"
+                          />
+                        </div>
+
+                        {/* JANコード */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            JANコード <span className="text-orange-500">NG</span>
+                          </label>
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                            <Input
+                              value={formData.janCode || ''}
+                              onChange={(e) => handleInputChange('janCode', e.target.value)}
+                              className="w-full bg-white"
+                              placeholder="4970381 804220, 4970381 804237, 4970381 804244"
+                            />
+                          </div>
+                        </div>
+
+                        {/* 価格 */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">価格</label>
+                          <Input
+                            type="number"
+                            value={formData.price || ''}
+                            onChange={(e) => handleInputChange('price', e.target.value)}
+                            className="w-full"
+                            placeholder="2640"
+                          />
+                        </div>
+
+                        {/* 在庫数 */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">在庫数</label>
+                          <Input
+                            type="number"
+                            value={formData.stock || ''}
+                            onChange={(e) => handleInputChange('stock', e.target.value)}
+                            className="w-full"
+                            placeholder="11"
+                          />
+                        </div>
+
+                        {/* カテゴリ */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">カテゴリ</label>
+                          <Input
+                            value={formData.category || ''}
+                            onChange={(e) => handleInputChange('category', e.target.value)}
+                            className="w-full"
+                            placeholder="貯金箱"
+                          />
+                        </div>
+
+                        {/* ブランド */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">ブランド</label>
+                          <Input
+                            value={formData.brand || ''}
+                            onChange={(e) => handleInputChange('brand', e.target.value)}
+                            className="w-full"
+                            placeholder="エンスカイ"
+                          />
+                        </div>
+
+                        {/* 製造元 */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            製造元 <span className="text-orange-500">NG</span>
+                          </label>
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                            <Input
+                              value={formData.manufacturer || ''}
+                              onChange={(e) => handleInputChange('manufacturer', e.target.value)}
+                              className="w-full bg-white"
+                              placeholder="未入力 (NG)"
+                            />
+                          </div>
+                        </div>
+
+                        {/* 商品説明 */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">商品説明</label>
+                          <textarea
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            rows={4}
+                            value={formData.description || ''}
+                            onChange={(e) => handleInputChange('description', e.target.value)}
+                            placeholder="ポケットモンスターのキャラクターをデフォルメした可愛い貯金箱。ピカチュウ、パチリス、ハリマロンなど..."
+                          />
+                        </div>
+                      </div>
+                    </ScrollArea>
                   </CardContent>
                 </Card>
               )}

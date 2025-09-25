@@ -563,9 +563,26 @@ async def update_extracted_data(
         if "sku" in data_update:
             update_fields["sku"] = data_update["sku"]
         if "price" in data_update:
-            update_fields["price"] = data_update["price"]
+            # Handle price conversion
+            price_value = data_update["price"]
+            if price_value == "" or price_value is None:
+                update_fields["price"] = None
+            else:
+                try:
+                    update_fields["price"] = float(price_value) if price_value != "" else None
+                except (ValueError, TypeError):
+                    update_fields["price"] = None
+        
         if "stock" in data_update:
-            update_fields["stock"] = data_update["stock"]
+            # Handle stock conversion
+            stock_value = data_update["stock"]
+            if stock_value == "" or stock_value is None:
+                update_fields["stock"] = None
+            else:
+                try:
+                    update_fields["stock"] = int(stock_value) if stock_value != "" else None
+                except (ValueError, TypeError):
+                    update_fields["stock"] = None
         if "category" in data_update:
             update_fields["category"] = data_update["category"]
         if "description" in data_update:
@@ -578,6 +595,8 @@ async def update_extracted_data(
             update_fields["manufacturer"] = data_update["manufacturer"]
         if "jan_code" in data_update:
             update_fields["jan_code"] = data_update["jan_code"]
+        if "janCode" in data_update:  # フロントエンドのcamelCase対応
+            update_fields["jan_code"] = data_update["janCode"]
         if "weight" in data_update:
             update_fields["weight"] = data_update["weight"]
         if "color" in data_update:

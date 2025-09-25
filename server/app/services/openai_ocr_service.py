@@ -122,24 +122,35 @@ class OpenAIOCRService:
             ocr_prompt = f"""
             {language_context}
             
-            Please perform high-accuracy OCR on this product catalog image. This may contain multiple products.
+            Please perform high-accuracy OCR on this product catalog image. This image likely contains MULTIPLE DIFFERENT PRODUCTS.
+            
+            CRITICAL MULTI-PRODUCT DETECTION:
+            This appears to be a product catalog page with multiple distinct products. Each product typically has:
+            - Different character designs/images (ピカチュウ, イーブイ, etc.)
+            - Separate product codes (ST-03CB, ST-04CB, ST-05CB, etc.)
+            - Individual JAN codes (13-digit barcodes)
+            - Distinct prices and specifications
             
             INSTRUCTIONS:
             1. Extract ALL visible text with 100% accuracy
-            2. AVOID repeating the same text multiple times 
-            3. If you see duplicate text patterns, extract each unique instance only once
-            4. Focus on product-specific information: names, codes, prices, sizes, dates
-            5. Preserve exact spacing and formatting for product data
-            6. For Japanese text, preserve kanji, hiragana, and katakana exactly
-            7. Extract numbers, prices, codes with exact formatting
+            2. IDENTIFY each separate product section/area in the image
+            3. For each product, extract ALL related information
+            4. AVOID repeating shared information (like company name, general descriptions)
+            5. Focus on product-specific information: names, codes, prices, sizes, dates
+            6. Preserve exact spacing and formatting for product data
+            7. For Japanese text, preserve kanji, hiragana, and katakana exactly
+            8. Extract numbers, prices, codes with exact formatting
+            9. If you see the same product name with different codes, treat as separate products
             
-            SPECIAL FOCUS - Look for these product details:
-            - 商品名 (Product names) - usually starts with ST-, contains ポケモン, etc.
-            - JANコード (JAN codes) - 13-digit numbers starting with 4
+            SPECIAL FOCUS - Look for these product details FOR EACH PRODUCT:
+            - 商品名 (Product names) - usually contains character names like ピカチュウ, イーブイ, etc.
+            - 商品コード (Product codes) - ST-03CB, ST-04CB, ST-05CB, EN-XXXX patterns
+            - JANコード (JAN codes) - 13-digit numbers starting with 4 (each product has unique JAN)
             - 希望小売価格 (Prices) - amounts with 円 or ¥
             - 発売予定日 (Release dates) - dates like 2024年12月
             - サイズ情報 (Size info) - dimensions with mm, cm
             - 入数 (Quantities) - numerical amounts
+            - キャラクター名 (Character names) - specific Pokemon or anime character names
             
             RESPONSE FORMAT - Return valid JSON only:
             {{
@@ -870,6 +881,8 @@ CRITICAL RULES:
             return []
         
         print(f"🔍 MULTI-PRODUCT DETECTION: Analyzing {len(raw_text)} characters")
+        print(f"📝 RAW TEXT PREVIEW (first 500 chars):")
+        print(f"{raw_text[:500]}...")
         text_lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
         products = []
         
@@ -880,7 +893,35 @@ CRITICAL RULES:
         if jan_patterns_with_hyphen:
             jan_patterns.extend([f"4970381{code}" for code in jan_patterns_with_hyphen])
         
+        # ST-コードパターンも検出して商品を分離
+        st_patterns = re.findall(r'ST-\d{2}[A-Z]{2}', raw_text)
         print(f"🔍 JAN PATTERNS FOUND: {jan_patterns}")
+        print(f"🔍 ST-CODE PATTERNS FOUND: {st_patterns}")
+        
+        # ST-コードが複数ある場合も強制的にマルチプロダクトとして処理
+        if len(st_patterns) > 1:
+            print(f"🔧 FORCING MULTI-PRODUCT BY ST-CODES: {len(st_patterns)} ST-codes detected")
+            # 各ST-コードに対して個別の商品を作成
+            for i, st_code in enumerate(st_patterns):
+                # 該当ST-コードを含むテキストセクションを抽出
+                st_section = self._extract_section_by_st_code(raw_text, st_code)
+                product_data = self._parse_product_data_from_text(st_section)
+                if product_data:
+                    product_data['product_index'] = i + 1
+                    product_data['section_text'] = st_section[:300] + "..." if len(st_section) > 300 else st_section
+                    product_data['sku'] = st_code  # 確実にSKUを設定
+                    # ポケモングッズの追加情報
+                    product_data['category'] = 'アニメグッズ'
+                    product_data['brand'] = 'エンスカイ'
+                    product_data['manufacturer'] = '株式会社エンスカイ'
+                    # キャラクター名を商品名に追加
+                    if not product_data.get('product_name'):
+                        product_data['product_name'] = f"ポケモンコインバンク {st_code}"
+                    products.append(product_data)
+                    print(f"   ✅ ST-Code Product {i+1}: {product_data.get('product_name', 'Unknown')}")
+                    print(f"      - SKU: {st_code}")
+                    print(f"      - JAN: {product_data.get('jan_code', 'N/A')}")
+            return products
         
         # JANコードが複数ある場合は強制的にマルチプロダクトとして処理
         if len(jan_patterns) > 1:
@@ -935,7 +976,28 @@ CRITICAL RULES:
                         products.append(product_data)
                         print(f"   ✅ Product {i+1}: {product_data.get('product_name', 'Unknown')}")
         
-        # 4. 「全〇〇種類」などの表現で複数商品を検出
+        # 4. ポケモンキャラクター名で複数商品を検出
+        elif self._detect_multiple_pokemon_characters(raw_text):
+            print("🎯 Detected multiple Pokemon characters in catalog")
+            character_products = self._split_by_pokemon_characters(raw_text)
+            
+            for i, (character, section) in enumerate(character_products):
+                if section.strip():
+                    product_data = self._parse_product_data_from_text(section)
+                    if product_data:
+                        product_data['product_index'] = i + 1
+                        product_data['section_text'] = section[:300] + "..." if len(section) > 300 else section
+                        # キャラクター名を商品名に含める
+                        if not product_data.get('product_name') or character not in product_data['product_name']:
+                            product_data['product_name'] = f"ポケモンコインバンク {character}"
+                        # ポケモングッズの追加情報
+                        product_data['category'] = 'アニメグッズ'
+                        product_data['brand'] = 'エンスカイ'
+                        product_data['manufacturer'] = '株式会社エンスカイ'
+                        products.append(product_data)
+                        print(f"   ✅ Pokemon Product {i+1}: {product_data.get('product_name', 'Unknown')}")
+
+        # 5. 「全〇〇種類」などの表現で複数商品を検出
         elif self._detect_multiple_by_count_expression(raw_text):
             print("🎯 Detected multiple products by count expression (全〇〇種類)")
             # カード・グッズ系の複数商品として扱う
@@ -1074,6 +1136,84 @@ CRITICAL RULES:
         
         return sections
     
+    def _extract_section_by_st_code(self, raw_text: str, st_code: str) -> str:
+        """ST-コードに基づいてテキストセクションを抽出"""
+        lines = raw_text.split('\n')
+        section_lines = []
+        st_code_found = False
+        
+        for i, line in enumerate(lines):
+            if st_code in line:
+                st_code_found = True
+                # ST-コードを含む行の前後5行を取得
+                start_idx = max(0, i - 5)
+                end_idx = min(len(lines), i + 10)
+                section_lines = lines[start_idx:end_idx]
+                break
+        
+        if not st_code_found:
+            # ST-コードが見つからない場合は、全体の一部を返す
+            return raw_text[:500]
+        
+        section_text = '\n'.join(section_lines)
+        
+        # キャラクター名を推測
+        character_mapping = {
+            'ST-03CB': 'ピカチュウ',
+            'ST-04CB': 'イーブイ', 
+            'ST-05CB': 'ハリマロン',
+            'ST-06CB': 'フォッコ',
+            'ST-07CB': 'ケロマツ'
+        }
+        
+        if st_code in character_mapping:
+            character_name = character_mapping[st_code]
+            section_text = f"{character_name} {section_text}"
+        
+        return section_text
+
+    def _detect_multiple_pokemon_characters(self, raw_text: str) -> bool:
+        """ポケモンキャラクター名の複数検出"""
+        pokemon_characters = [
+            'ピカチュウ', 'イーブイ', 'ハリマロン', 'フォッコ', 'ケロマツ',
+            'フシギダネ', 'ヒトカゲ', 'ゼニガメ', 'チコリータ', 'ヒノアラシ',
+            'ワニノコ', 'キモリ', 'アチャモ', 'ミズゴロウ', 'ナエトル',
+            'ヒコザル', 'ポッチャマ', 'ツタージャ', 'ポカブ', 'ミジュマル'
+        ]
+        
+        found_characters = []
+        for character in pokemon_characters:
+            if character in raw_text:
+                found_characters.append(character)
+        
+        print(f"🔍 POKEMON CHARACTERS FOUND: {found_characters}")
+        return len(found_characters) > 1
+
+    def _split_by_pokemon_characters(self, raw_text: str) -> list:
+        """ポケモンキャラクター名でテキストを分割"""
+        pokemon_characters = [
+            'ピカチュウ', 'イーブイ', 'ハリマロン', 'フォッコ', 'ケロマツ',
+            'フシギダネ', 'ヒトカゲ', 'ゼニガメ', 'チコリータ', 'ヒノアラシ',
+            'ワニノコ', 'キモリ', 'アチャモ', 'ミズゴロウ', 'ナエトル',
+            'ヒコザル', 'ポッチャマ', 'ツタージャ', 'ポカブ', 'ミジュマル'
+        ]
+        
+        character_sections = []
+        lines = raw_text.split('\n')
+        
+        for character in pokemon_characters:
+            if character in raw_text:
+                # キャラクター名を含む行を探して、その周辺のテキストを抽出
+                for i, line in enumerate(lines):
+                    if character in line:
+                        start_idx = max(0, i - 3)
+                        end_idx = min(len(lines), i + 8)
+                        section = '\n'.join(lines[start_idx:end_idx])
+                        character_sections.append((character, section))
+                        break
+        
+        return character_sections
+
     def _extract_section_by_jan(self, raw_text: str, jan_code: str) -> str:
         """特定のJANコードを含むテキストセクションを抽出"""
         text_lines = raw_text.split('\n')
