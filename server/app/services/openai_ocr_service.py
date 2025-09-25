@@ -343,8 +343,8 @@ class OpenAIOCRService:
                 logger.error(f"OpenAI API quota exceeded: {str(e)}")
                 raise ValueError(f"OpenAI API quota exceeded. Please check your OpenAI account billing. Error: {str(e)}")
             else:
-            logger.error(f"OpenAI OCR processing failed: {str(e)}")
-            raise ValueError(f"OpenAI OCR processing failed: {str(e)}")
+                logger.error(f"OpenAI OCR processing failed: {str(e)}")
+                raise ValueError(f"OpenAI OCR processing failed: {str(e)}")
     
     async def extract_text_from_excel(
         self,
@@ -378,7 +378,7 @@ class OpenAIOCRService:
                 print(f"🔍 PROCESSING SHEET: {sheet_name} ({len(sheet_df)} rows)")
                 
                 # Extract only rows containing product codes (EN-XXXX)
-                    for idx, row in sheet_df.iterrows():
+                for idx, row in sheet_df.iterrows():
                     row_str = " | ".join([str(cell) if pd.notna(cell) else "" for cell in row.values])
                     
                     # Only include rows with EN-codes or essential headers
@@ -472,9 +472,10 @@ class OpenAIOCRService:
                         print("  " + "-" * 38)
                     else:
                         print("  " + "-" * 38)
+            else:
                 # Single product processing
                 parsed_structured_data = self._parse_product_data_from_text(raw_text)
-                parsed_structured_data["has_multiple_products"] = True
+                parsed_structured_data["has_multiple_products"] = False
             
             parsed_structured_data.update({
                 "ai_analysis": ai_structured,
@@ -602,7 +603,7 @@ CRITICAL RULES:
                     try:
                         import json
                         if response_text.strip().startswith('{'):
-                        page_result = json.loads(response_text)
+                            page_result = json.loads(response_text)
                         else:
                             # Try to extract JSON from markdown
                             json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_text, re.DOTALL)
@@ -901,22 +902,36 @@ CRITICAL RULES:
         # ST-コードが複数ある場合も強制的にマルチプロダクトとして処理
         if len(st_patterns) > 1:
             print(f"🔧 FORCING MULTI-PRODUCT BY ST-CODES: {len(st_patterns)} ST-codes detected")
+            
+            # ST-コードとJANコードの正確なマッピングを作成
+            st_jan_mapping = self._create_st_jan_mapping(raw_text, st_patterns, jan_patterns)
+            print(f"🔗 ST-JAN MAPPING: {st_jan_mapping}")
+            
             # 各ST-コードに対して個別の商品を作成
             for i, st_code in enumerate(st_patterns):
-                # 該当ST-コードを含むテキストセクションを抽出
-                st_section = self._extract_section_by_st_code(raw_text, st_code)
+                # 該当ST-コードに基づいてより精密なセクションを抽出
+                st_section = self._extract_precise_section_by_st_code(raw_text, st_code, st_patterns)
                 product_data = self._parse_product_data_from_text(st_section)
                 if product_data:
                     product_data['product_index'] = i + 1
                     product_data['section_text'] = st_section[:300] + "..." if len(st_section) > 300 else st_section
                     product_data['sku'] = st_code  # 確実にSKUを設定
+                    
+                    # 正確なJANコードを設定
+                    if st_code in st_jan_mapping:
+                        product_data['jan_code'] = st_jan_mapping[st_code]
+                        print(f"   🔗 Mapped JAN for {st_code}: {st_jan_mapping[st_code]}")
+                    
                     # ポケモングッズの追加情報
                     product_data['category'] = 'アニメグッズ'
                     product_data['brand'] = 'エンスカイ'
                     product_data['manufacturer'] = '株式会社エンスカイ'
-                    # キャラクター名を商品名に追加
-                    if not product_data.get('product_name'):
-                        product_data['product_name'] = f"ポケモンコインバンク {st_code}"
+                    
+                    # より正確な商品名を設定
+                    character_name = self._get_character_for_st_code(st_code)
+                    if character_name and (not product_data.get('product_name') or len(product_data['product_name']) < 10):
+                        product_data['product_name'] = f"{character_name} 商品コード: {st_code}"
+                    
                     products.append(product_data)
                     print(f"   ✅ ST-Code Product {i+1}: {product_data.get('product_name', 'Unknown')}")
                     print(f"      - SKU: {st_code}")
@@ -1215,8 +1230,8 @@ CRITICAL RULES:
         return character_sections
 
     def _extract_section_by_jan(self, raw_text: str, jan_code: str) -> str:
-        """特定のJANコードを含むテキストセクションを抽出"""
-        text_lines = raw_text.split('\n')
+        """特定のJANコードを含むテキストセクションを抽出（改良版）"""
+        text_lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
         jan_line_index = -1
         
         # JANコードを含む行を探す
@@ -1229,14 +1244,40 @@ CRITICAL RULES:
             # JANコードが見つからない場合、全テキストを返す
             return raw_text
         
-        # JANコード行の前後5行を抽出
-        start_index = max(0, jan_line_index - 5)
-        end_index = min(len(text_lines), jan_line_index + 6)
+        # より精密なセクション抽出
+        # 商品コード（ST-コード）を基準にセクションを区切る
+        section_start = jan_line_index
+        section_end = jan_line_index + 1
         
-        section_lines = text_lines[start_index:end_index]
+        # 上向きに検索して、このJANコードに対応する商品情報の開始点を探す
+        for i in range(jan_line_index, max(0, jan_line_index - 10), -1):
+            line = text_lines[i]
+            # ST-コード、商品名、または別のJANコードで区切り
+            if re.search(r'ST-\d{2}[A-Z]{2}', line) or '商品名' in line:
+                section_start = i
+                break
+            # 別のJANコードが見つかったら、そこで区切り
+            if re.search(r'\b4\d{12}\b', line) and jan_code not in line:
+                section_start = i + 1
+                break
+        
+        # 下向きに検索して、このJANコードに対応する商品情報の終了点を探す
+        for i in range(jan_line_index + 1, min(len(text_lines), jan_line_index + 15)):
+            line = text_lines[i]
+            # 次の商品のST-コードまたはJANコードで区切り
+            if re.search(r'ST-\d{2}[A-Z]{2}', line) or re.search(r'\b4\d{12}\b', line):
+                section_end = i
+                break
+            # 商品サイズの行で終了
+            if '商品サイズ' in line:
+                section_end = i + 1
+                break
+        
+        # セクションを抽出
+        section_lines = text_lines[section_start:section_end]
         section_text = '\n'.join(section_lines)
         
-        print(f"🔍 Extracted section for JAN {jan_code}: {section_text[:100]}...")
+        print(f"🔍 Extracted section for JAN {jan_code} (lines {section_start}-{section_end}): {section_text[:100]}...")
         return section_text
     
     def _split_by_en_codes(self, text_lines: list) -> list:
@@ -1951,3 +1992,98 @@ CRITICAL RULES:
                 return match.group(1).strip()
         
         return None 
+    
+    def _create_st_jan_mapping(self, raw_text: str, st_patterns: list, jan_patterns: list) -> dict:
+        """ST-コードとJANコードの正確なマッピングを作成"""
+        mapping = {}
+        text_lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
+        
+        # 各ST-コードについて、その近くにあるJANコードを探す
+        for st_code in st_patterns:
+            for i, line in enumerate(text_lines):
+                if st_code in line:
+                    # ST-コードの行から下向きに最大10行検索
+                    for j in range(i, min(len(text_lines), i + 10)):
+                        jan_match = re.search(r'\b(4\d{12})\b', text_lines[j])
+                        if jan_match:
+                            jan_code = jan_match.group(1)
+                            mapping[st_code] = jan_code
+                            print(f"   🔗 Found mapping: {st_code} -> {jan_code}")
+                            break
+                    break
+        
+        # 残りのJANコードを未マッピングのST-コードに割り当て
+        used_jans = set(mapping.values())
+        unused_jans = [jan for jan in jan_patterns if jan not in used_jans]
+        unmapped_sts = [st for st in st_patterns if st not in mapping]
+        
+        for st_code, jan_code in zip(unmapped_sts, unused_jans):
+            mapping[st_code] = jan_code
+            print(f"   🔧 Auto-mapped: {st_code} -> {jan_code}")
+        
+        return mapping
+    
+    def _extract_precise_section_by_st_code(self, raw_text: str, st_code: str, all_st_codes: list) -> str:
+        """ST-コードに基づいてより精密なテキストセクションを抽出"""
+        text_lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
+        section_lines = []
+        st_line_index = -1
+        
+        # ST-コードを含む行を探す
+        for i, line in enumerate(text_lines):
+            if st_code in line:
+                st_line_index = i
+                break
+        
+        if st_line_index == -1:
+            return raw_text[:500]  # ST-コードが見つからない場合
+        
+        # セクションの開始点を探す（上向き検索）
+        section_start = st_line_index
+        for i in range(st_line_index, max(0, st_line_index - 15), -1):
+            line = text_lines[i]
+            # 商品名の行または前の商品のST-コードで区切り
+            if '商品名' in line and ('ソフビ' in line or 'ポケモン' in line):
+                section_start = i
+                break
+            # 他のST-コードが見つかったらそこで区切り
+            other_st_codes = [code for code in all_st_codes if code != st_code]
+            if any(other_st in line for other_st in other_st_codes):
+                section_start = i + 1
+                break
+        
+        # セクションの終了点を探す（下向き検索）
+        section_end = len(text_lines)
+        for i in range(st_line_index + 1, min(len(text_lines), st_line_index + 20)):
+            line = text_lines[i]
+            # 次の商品のST-コードまたは商品名で区切り
+            other_st_codes = [code for code in all_st_codes if code != st_code]
+            if any(other_st in line for other_st in other_st_codes):
+                section_end = i
+                break
+            if '商品名' in line and ('ソフビ' in line or 'ポケモン' in line) and i > st_line_index + 3:
+                section_end = i
+                break
+        
+        # セクションを抽出
+        section_lines = text_lines[section_start:section_end]
+        section_text = '\n'.join(section_lines)
+        
+        # キャラクター名を前に追加
+        character_name = self._get_character_for_st_code(st_code)
+        if character_name:
+            section_text = f"{character_name} {section_text}"
+        
+        print(f"🔍 Extracted precise section for {st_code} (lines {section_start}-{section_end}): {section_text[:100]}...")
+        return section_text
+    
+    def _get_character_for_st_code(self, st_code: str) -> str:
+        """ST-コードに対応するキャラクター名を取得"""
+        character_mapping = {
+            'ST-03CB': 'ピカチュウ',
+            'ST-04CB': 'イーブイ', 
+            'ST-05CB': 'ハリマロン',
+            'ST-06CB': 'フォッコ',
+            'ST-07CB': 'ケロマツ'
+        }
+        return character_mapping.get(st_code, '')

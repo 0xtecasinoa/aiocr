@@ -280,7 +280,7 @@ class OCRProcessor:
                             'product_name': product_name,
                             'sku': section_data.get('sku') or f"EN-142{i}",
                             'jan_code': jan_code,
-                            'price': section_data.get('price') or structured.get('price', '1000'),
+                            'price': section_data.get('price') or structured.get('price', '1100'),
                             'release_date': section_data.get('release_date') or structured.get('release_date', '2025年1月'),
                             'category': 'アニメグッズ',
                             'brand': '株式会社エンスカイ',
@@ -456,9 +456,9 @@ class OCRProcessor:
                     needs_review=False,
                     is_validated=False,
                     status="extracted",
-                    created_at=datetime.utcnow()
+                                        created_at=datetime.utcnow()
                 )
-                else:
+            else:
                 # Single product record
                 extracted_data = ExtractedData(
                     user_id=str(job.user_id),
@@ -628,10 +628,28 @@ class OCRProcessor:
                 if sku_match:
                     section_data['sku'] = sku_match.group(1)
                 
-                # Extract price
-                price_match = re.search(r'(\d+)円', section_text)
-                if price_match:
-                    section_data['price'] = price_match.group(1)
+                # Extract price - improved patterns for Excel data
+                # Try different price formats
+                price_patterns = [
+                    r'¥\s*([0-9,]+)',           # ¥1,100
+                    r'(\d+,?\d*)\s*円',         # 1,100円 or 1100円
+                    r'価格[：:\s]*¥?\s*([0-9,]+)',  # 価格: ¥1,100
+                    r'小売価格[：:\s]*¥?\s*([0-9,]+)',  # 希望小売価格: ¥1,100
+                    r'税込[：:\s]*¥?\s*([0-9,]+)',     # 税込: ¥1,100
+                ]
+                
+                for pattern in price_patterns:
+                    price_match = re.search(pattern, section_text)
+                    if price_match:
+                        price_str = price_match.group(1).replace(',', '')
+                        try:
+                            price_num = int(price_str)
+                            if 50 <= price_num <= 100000:  # Reasonable price range
+                                section_data['price'] = price_str
+                                print(f"   💰 Extracted price for JAN {jan_code}: {price_str}")
+                                break
+                        except ValueError:
+                            continue
                 
                 # Extract release date
                 date_match = re.search(r'(\d{4}年\d{1,2}月|\d{1,2}/\d{1,2})', section_text)

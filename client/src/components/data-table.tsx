@@ -98,7 +98,6 @@ export default function DataTable({ data, selectedIds, onSelectionChange, onEdit
               <TableHead>価格</TableHead>
               <TableHead>在庫数</TableHead>
               <TableHead>カテゴリ</TableHead>
-              <TableHead>変換日時</TableHead>
               <TableHead>ステータス</TableHead>
               <TableHead className="w-20">操作</TableHead>
             </TableRow>
@@ -141,9 +140,6 @@ export default function DataTable({ data, selectedIds, onSelectionChange, onEdit
                 </TableCell>
                 <TableCell data-testid={`badge-category-${item.id}`}>
                   {getCategoryBadge(item.category)}
-                </TableCell>
-                <TableCell className="text-slate-500 text-sm" data-testid={`text-date-${item.id}`}>
-                  {item.extractedAt ? new Date(item.extractedAt).toLocaleString('ja-JP') : ''}
                 </TableCell>
                 <TableCell data-testid={`badge-status-${item.id}`}>
                   {getStatusBadge(item.status || 'completed')}

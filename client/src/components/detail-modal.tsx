@@ -135,11 +135,6 @@ export default function DetailModal({ isOpen, onClose, item }: DetailModalProps)
         manufacturer: (item as any).manufacturer || "",
         description: item.description || "",
         jan_code: (item as any).jan_code || "",
-        weight: (item as any).weight || "",
-        color: (item as any).color || "",
-        material: (item as any).material || "",
-        origin: (item as any).origin || "",
-        warranty: (item as any).warranty || "",
         is_validated: item.is_validated || false,
       });
       setIsEditMode(false);
@@ -167,11 +162,6 @@ export default function DetailModal({ isOpen, onClose, item }: DetailModalProps)
             manufacturer: (item as any).manufacturer || "",
             description: item.description || "",
             jan_code: (item as any).jan_code || "",
-            weight: (item as any).weight || "",
-            color: (item as any).color || "",
-            material: (item as any).material || "",
-            origin: (item as any).origin || "",
-            warranty: (item as any).warranty || "",
             is_validated: item.is_validated || false,
           });
         }
@@ -537,113 +527,9 @@ export default function DetailModal({ isOpen, onClose, item }: DetailModalProps)
                     </div>
                   </div>
 
-                  {/* 重量・色・素材 */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                      <Label htmlFor="weight" className="text-sm font-medium text-slate-700">重量</Label>
-                      <Input
-                        id="weight"
-                        value={formData.weight || ""}
-                        onChange={(e) => handleFormChange("weight", e.target.value)}
-                        disabled={!isEditMode}
-                        className={`mt-2 ${isEditMode 
-                          ? "border-slate-300 focus:border-blue-500 focus:ring-blue-500" 
-                          : "bg-slate-50 border-slate-200"
-                        } ${validationErrors.weight ? "border-red-300 focus:border-red-500" : ""}`}
-                        placeholder="例: 200g"
-                      />
-                      {validationErrors.weight && (
-                        <p className="text-sm text-red-500 mt-2 flex items-center space-x-1">
-                          <span>⚠️</span>
-                          <span>{validationErrors.weight}</span>
-                        </p>
-                      )}
-                    </div>
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                      <Label htmlFor="color" className="text-sm font-medium text-slate-700">色</Label>
-                      <Input
-                        id="color"
-                        value={formData.color || ""}
-                        onChange={(e) => handleFormChange("color", e.target.value)}
-                        disabled={!isEditMode}
-                        className={`mt-2 ${isEditMode 
-                          ? "border-slate-300 focus:border-blue-500 focus:ring-blue-500" 
-                          : "bg-slate-50 border-slate-200"
-                        } ${validationErrors.color ? "border-red-300 focus:border-red-500" : ""}`}
-                        placeholder="例: ブラック"
-                      />
-                      {validationErrors.color && (
-                        <p className="text-sm text-red-500 mt-2 flex items-center space-x-1">
-                          <span>⚠️</span>
-                          <span>{validationErrors.color}</span>
-                        </p>
-                      )}
-                    </div>
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                      <Label htmlFor="material" className="text-sm font-medium text-slate-700">素材</Label>
-                      <Input
-                        id="material"
-                        value={formData.material || ""}
-                        onChange={(e) => handleFormChange("material", e.target.value)}
-                        disabled={!isEditMode}
-                        className={`mt-2 ${isEditMode 
-                          ? "border-slate-300 focus:border-blue-500 focus:ring-blue-500" 
-                          : "bg-slate-50 border-slate-200"
-                        } ${validationErrors.material ? "border-red-300 focus:border-red-500" : ""}`}
-                        placeholder="例: アルミニウム"
-                      />
-                      {validationErrors.material && (
-                        <p className="text-sm text-red-500 mt-2 flex items-center space-x-1">
-                          <span>⚠️</span>
-                          <span>{validationErrors.material}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* 原産地 & 保証期間 */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                      <Label htmlFor="origin" className="text-sm font-medium text-slate-700">原産地</Label>
-                      <Input
-                        id="origin"
-                        value={formData.origin || ""}
-                        onChange={(e) => handleFormChange("origin", e.target.value)}
-                        disabled={!isEditMode}
-                        className={`mt-2 ${isEditMode 
-                          ? "border-slate-300 focus:border-blue-500 focus:ring-blue-500" 
-                          : "bg-slate-50 border-slate-200"
-                        } ${validationErrors.origin ? "border-red-300 focus:border-red-500" : ""}`}
-                        placeholder="例: 日本"
-                      />
-                      {validationErrors.origin && (
-                        <p className="text-sm text-red-500 mt-2 flex items-center space-x-1">
-                          <span>⚠️</span>
-                          <span>{validationErrors.origin}</span>
-                        </p>
-                      )}
-                    </div>
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                      <Label htmlFor="warranty" className="text-sm font-medium text-slate-700">保証期間</Label>
-                      <Input
-                        id="warranty"
-                        value={formData.warranty || ""}
-                        onChange={(e) => handleFormChange("warranty", e.target.value)}
-                        disabled={!isEditMode}
-                        className={`mt-2 ${isEditMode 
-                          ? "border-slate-300 focus:border-blue-500 focus:ring-blue-500" 
-                          : "bg-slate-50 border-slate-200"
-                        } ${validationErrors.warranty ? "border-red-300 focus:border-red-500" : ""}`}
-                        placeholder="例: 1年間"
-                      />
-                      {validationErrors.warranty && (
-                        <p className="text-sm text-red-500 mt-2 flex items-center space-x-1">
-                          <span>⚠️</span>
-                          <span>{validationErrors.warranty}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
+
+
 
                   {/* 商品説明 */}
                   <div className="bg-white border border-slate-200 rounded-lg p-4">

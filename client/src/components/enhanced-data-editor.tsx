@@ -45,11 +45,6 @@ export default function EnhancedDataEditor({ isOpen, onClose, item }: EnhancedDa
     { key: 'brand', label: 'ブランド', type: 'text' },
     { key: 'manufacturer', label: '製造元', type: 'text' },
     { key: 'description', label: '商品説明', type: 'textarea' },
-    { key: 'weight', label: '重量', type: 'text' },
-    { key: 'color', label: '色', type: 'text' },
-    { key: 'material', label: '素材', type: 'text' },
-    { key: 'origin', label: '原産地', type: 'text' },
-    { key: 'warranty', label: '保証', type: 'text' }
   ];
 
   // Initialize form data when item changes

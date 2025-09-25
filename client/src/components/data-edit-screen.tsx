@@ -107,7 +107,7 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
 
   const editableFields: EditableField[] = [
     { key: 'productName', label: '商品名', type: 'text', required: true },
-    { key: 'sku', label: '品番', type: 'text' },
+    { key: 'sku', label: 'SKU', type: 'text' },
     { key: 'jan_code', label: 'JANコード', type: 'text' },
     { key: 'price', label: '価格', type: 'number' },
     { key: 'stock', label: '在庫数', type: 'number' },
@@ -115,12 +115,6 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
     { key: 'brand', label: 'ブランド', type: 'text' },
     { key: 'manufacturer', label: '製造元', type: 'text' },
     { key: 'description', label: '商品説明', type: 'textarea' },
-    { key: 'weight', label: '重量', type: 'text' },
-    { key: 'color', label: '色', type: 'text' },
-    { key: 'material', label: '素材', type: 'text' },
-    { key: 'origin', label: '原産地', type: 'text' },
-    { key: 'warranty', label: '保証', type: 'text' },
-    { key: 'dimensions', label: 'サイズ', type: 'text' },
   ];
 
   const handleInputChange = (key: string, value: string) => {
@@ -155,8 +149,8 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
       product_name: processedData.productName,
       productName: processedData.productName, // Keep both for compatibility
       sku: processedData.sku,
-      jan_code: processedData.janCode,
-      janCode: processedData.janCode, // Keep both for compatibility
+      jan_code: processedData.jan_code,
+      janCode: processedData.jan_code, // Keep both for compatibility
       price: processedData.price,
       stock: processedData.stock,
       category: processedData.category,
@@ -209,7 +203,7 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
         const structuredData = (product as any).structured_data || {};
         if (field.key === 'sku') {
           newFormData[field.key] = (product as any).sku || structuredData.sku || '';
-        } else if (field.key === 'janCode') {
+        } else if (field.key === 'jan_code') {
           newFormData[field.key] = (product as any).jan_code || structuredData.jan_code || '';
         } else if (field.key === 'releaseDate') {
           newFormData[field.key] = (product as any).release_date || structuredData.release_date || '';
@@ -553,8 +547,8 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                           </label>
                           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                             <Input
-                              value={formData.janCode || ''}
-                              onChange={(e) => handleInputChange('janCode', e.target.value)}
+                              value={formData.jan_code || ''}
+                              onChange={(e) => handleInputChange('jan_code', e.target.value)}
                               className="w-full bg-white"
                               placeholder="4970381 804220, 4970381 804237, 4970381 804244"
                             />
