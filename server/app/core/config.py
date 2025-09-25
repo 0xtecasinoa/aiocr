@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # Application
     PROJECT_NAME: str = "Conex AI-OCR API"
     VERSION: str = "1.0.0"
-    DEBUG: bool = False
+    DEBUG: bool = True  # Enable debug mode for development
     API_V1_PREFIX: str = "/api/v1"
     
     # Security
@@ -79,7 +79,9 @@ class Settings(BaseSettings):
         "http://localhost:5174",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
-        "http://127.0.0.1:3000"
+        "http://127.0.0.1:3000",
+        "https://localhost:5174",
+        "https://127.0.0.1:5174"
     ]
     
     # Celery

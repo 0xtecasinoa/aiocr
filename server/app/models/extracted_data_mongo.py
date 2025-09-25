@@ -48,6 +48,12 @@ class ExtractedData(Document):
     language_detected: Optional[str] = None
     processing_metadata: Optional[Dict[str, Any]] = None
     
+    # Multi-product support
+    source_file_id: Optional[str] = None  # ID of the source file (for grouping multi-products)
+    is_multi_product: bool = False  # Whether this item is part of a multi-product file
+    total_products_in_file: Optional[int] = 1  # Total number of products in the source file
+    product_index: Optional[int] = None  # Index of this product within the file (1, 2, 3, etc.)
+    
     # Review and validation
     needs_review: bool = False
     is_validated: bool = False

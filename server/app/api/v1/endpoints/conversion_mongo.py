@@ -12,7 +12,7 @@ from app.api.v1.endpoints.auth_mongo import get_current_active_user
 from app.models.user_mongo import User
 from app.models.conversion_job_mongo import ConversionJob
 from app.models.file_upload_mongo import FileUpload
-from app.services.ocr_processor import get_ocr_processor
+from app.services.ocr_processor_fixed import get_ocr_processor
 
 router = APIRouter()
 

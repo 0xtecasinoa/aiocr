@@ -221,7 +221,18 @@ export default function DetailModal({ isOpen, onClose, item }: DetailModalProps)
   };
 
   const getDisplayFileName = () => {
-    return item!.productName || `File_${(item! as any).uploadedFileId?.slice(-8) || 'Unknown'}`;
+    const productIndex = (item! as any).structured_data?.product_index;
+    const productName = item!.productName;
+    const baseFileName = `File_${(item! as any).uploadedFileId?.slice(-8) || 'Unknown'}`;
+    
+    if (productIndex && productName) {
+      return `商品${productIndex}: ${productName}`;
+    } else if (productIndex) {
+      return `商品${productIndex} - ${baseFileName}`;
+    } else if (productName) {
+      return productName;
+    }
+    return baseFileName;
   };
 
   if (!item) return null;

@@ -9,6 +9,7 @@ import logging
 import asyncio
 import sys
 import signal
+import socket
 
 from app.core.config import settings
 from app.core.database_mongo import connect_to_mongo, close_mongo_connection
@@ -16,9 +17,22 @@ from app.api.v1.api import api_router
 
 # Set Windows event loop policy for better compatibility
 if sys.platform.startswith('win'):
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    # Use SelectorEventLoop instead of ProactorEventLoop to avoid connection reset errors
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     # Ignore SIGINT on Windows to prevent connection reset errors
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+# Custom log filter to suppress Windows connection reset errors
+class WindowsConnectionFilter(logging.Filter):
+    def filter(self, record):
+        # Suppress Windows connection reset errors
+        if "ConnectionResetError" in str(record.getMessage()):
+            return False
+        if "WinError 10054" in str(record.getMessage()):
+            return False
+        if "_call_connection_lost" in str(record.getMessage()):
+            return False
+        return True
 
 # Configure logging to reduce console output
 logging.basicConfig(
@@ -28,11 +42,19 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
+
+# Apply filter to suppress Windows connection errors
 logger = logging.getLogger(__name__)
+asyncio_logger = logging.getLogger('asyncio')
+asyncio_logger.addFilter(WindowsConnectionFilter())
+
+# Also apply to root logger to catch all connection errors
+root_logger = logging.getLogger()
+root_logger.addFilter(WindowsConnectionFilter())
 
 # Set Windows-specific asyncio policy if on Windows
 if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 @asynccontextmanager
@@ -64,13 +86,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Add CORS middleware with comprehensive settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.CORS_ORIGINS + ["*"] if settings.DEBUG else settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Add trusted host middleware for security
@@ -86,12 +109,34 @@ async def add_process_time_header(request: Request, call_next):
     """Add processing time header to responses."""
     start_time = time.time()
     try:
+        # Handle preflight requests
+        if request.method == "OPTIONS":
+            response = JSONResponse(content={})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            return response
+            
         response = await call_next(request)
         process_time = time.time() - start_time
         response.headers["X-Process-Time"] = str(process_time)
+        
+        # Add CORS headers to all responses
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        
         return response
+    except ConnectionResetError:
+        # Silently handle Windows connection reset errors
+        return JSONResponse(
+            status_code=200,
+            content={"detail": "Connection reset by client"}
+        )
     except Exception as e:
-        logger.error(f"Request processing error: {e}")
+        # Only log non-connection errors
+        if "ConnectionResetError" not in str(e) and "WinError 10054" not in str(e):
+            logger.error(f"Request processing error: {e}")
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error"}

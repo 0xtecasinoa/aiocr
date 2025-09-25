@@ -328,8 +328,16 @@ async def list_extracted_data(
             "warranty": getattr(item, 'warranty', None),
             "dimensions": getattr(item, 'dimensions', None),
             "specifications": getattr(item, 'specifications', None),
+            "extractedAt": item.created_at.isoformat() if item.created_at else None,
+            "is_validated": getattr(item, 'is_validated', False),
+            "needs_review": getattr(item, 'needs_review', False),
             "created_at": item.created_at.isoformat() if item.created_at else None,
             "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+            # Multi-product support fields
+            "sourceFileId": getattr(item, 'source_file_id', None),
+            "isMultiProduct": getattr(item, 'is_multi_product', False),
+            "totalProductsInFile": getattr(item, 'total_products_in_file', 1),
+            "productIndex": getattr(item, 'product_index', None),
         })
     
     print(f"DEBUG: Returning {len(data_list)} items")
@@ -388,8 +396,16 @@ async def get_user_extracted_data(
             "warranty": getattr(item, 'warranty', None),
             "dimensions": getattr(item, 'dimensions', None),
             "specifications": getattr(item, 'specifications', None),
+            "extractedAt": item.created_at.isoformat() if item.created_at else None,
+            "is_validated": getattr(item, 'is_validated', False),
+            "needs_review": getattr(item, 'needs_review', False),
             "created_at": item.created_at.isoformat() if item.created_at else None,
             "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+            # Multi-product support fields
+            "sourceFileId": getattr(item, 'source_file_id', None),
+            "isMultiProduct": getattr(item, 'is_multi_product', False),
+            "totalProductsInFile": getattr(item, 'total_products_in_file', 1),
+            "productIndex": getattr(item, 'product_index', None),
         })
     
     print(f"DEBUG: Returning {len(data_list)} items for user {user_id}")

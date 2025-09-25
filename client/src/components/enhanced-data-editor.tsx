@@ -57,7 +57,19 @@ export default function EnhancedDataEditor({ isOpen, onClose, item }: EnhancedDa
     if (item) {
       const initialData: Record<string, any> = {};
       editableFields.forEach(field => {
-        initialData[field.key] = (item as any)[field.key] || '';
+        // Map API response field names to form field names
+        let value = '';
+        switch (field.key) {
+          case 'productName':
+            value = (item as any).productName || '';
+            break;
+          case 'jan_code':
+            value = (item as any).jan_code || '';
+            break;
+          default:
+            value = (item as any)[field.key] || '';
+        }
+        initialData[field.key] = value;
       });
       setFormData(initialData);
       setHasChanges(false);

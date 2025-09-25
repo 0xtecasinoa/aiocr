@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import DetailModal from "@/components/detail-modal";
 import EnhancedDataEditor from "@/components/enhanced-data-editor";
+import MultiProductEditor from "@/components/multi-product-editor";
+import { RightPanelMultiList } from "@/components/right-panel-multi-list";
+import DataEditScreen from "@/components/data-edit-screen";
 import { authManager } from "@/lib/auth";
 import { apiClient } from "@/lib/api";
 import { ExtractedData } from "../types";
@@ -22,6 +25,8 @@ export default function DataListPage() {
   const [selectedItem, setSelectedItem] = useState<ExtractedData | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isEnhancedEditorOpen, setIsEnhancedEditorOpen] = useState(false);
+  const [isMultiProductEditorOpen, setIsMultiProductEditorOpen] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<ExtractedData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterFolder, setFilterFolder] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -31,14 +36,13 @@ export default function DataListPage() {
   const itemsPerPage = 20;
   const { toast } = useToast();
 
-  // Column configuration
+  // Column configuration for file information only
   const allColumns = [
-    { id: 'businessPartner', label: '取引先名', width: 'w-32' },
-    { id: 'deliveryDestination', label: '納入先名', width: 'w-24' },
-    { id: 'deliveryDepartment', label: '納入先部署名', width: 'w-32' },
-    { id: 'deliveryAddress', label: '納入先住所', width: 'w-32' },
-    { id: 'desiredDeliveryDate', label: '希望納期', width: 'w-24' },
-    { id: 'productNumber', label: '品番', width: 'w-20' },
+    { id: 'fileName', label: 'ファイル名', width: 'w-48' },
+    { id: 'processingStatus', label: '処理ステータス', width: 'w-32' },
+    { id: 'confidence', label: '信頼度', width: 'w-24' },
+    { id: 'extractedCount', label: '抽出件数', width: 'w-24' },
+    { id: 'processedDate', label: '処理日', width: 'w-32' },
     { id: 'validationResult', label: '判定結果', width: 'w-20' },
     { id: 'operations', label: '操作', width: 'w-32' }
   ];
@@ -48,6 +52,15 @@ export default function DataListPage() {
     allColumns.slice(0, 6).map(col => col.id)
   );
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
+
+  // Right panel state for multi-product list
+  const [selectedFileProducts, setSelectedFileProducts] = useState<ExtractedData[]>([]);
+  const [rightPanelVisible, setRightPanelVisible] = useState(false);
+  const [rightPanelFileName, setRightPanelFileName] = useState<string>("");
+
+  // Data edit screen state
+  const [showDataEditScreen, setShowDataEditScreen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ExtractedData | null>(null);
 
   // Toggle column visibility
   const toggleColumn = (columnId: string) => {
@@ -66,18 +79,18 @@ export default function DataListPage() {
   // Render cell content based on column type
   const renderCellContent = (item: ExtractedData, columnId: string, index: number) => {
     switch (columnId) {
-      case 'businessPartner':
-        return item.manufacturer || item.brand || "CO-NECT株式会社";
-      case 'deliveryDestination':
-        return item.category || "神田店";
-      case 'deliveryDepartment':
-        return item.description ? item.description.slice(0, 20) + "..." : "営業部";
-      case 'deliveryAddress':
-        return item.origin || "東京都千代田区";
-      case 'desiredDeliveryDate':
-        return item.created_at ? new Date(item.created_at).toLocaleDateString('ja-JP').replace(/\//g, '/') : '2025/08/13';
-      case 'productNumber':
-        return item.sku || item.jan_code || `${item.productName?.charAt(0) || 'M'}${String(index + 1).padStart(3, '0')}`;
+      case 'fileName':
+        return getDisplayFileName(item);
+      case 'processingStatus':
+        return getStatusBadge(item);
+      case 'confidence':
+        return `${item.confidence_score || 95.0}%`;
+      case 'extractedCount':
+        const fileId_count = (item as any).sourceFileId || (item as any).uploadedFileId || item.id;
+        const sameFileProducts_count = groupedByFile[fileId_count] as ExtractedData[] || [];
+        return `${sameFileProducts_count.length}件`;
+      case 'processedDate':
+        return item.created_at ? new Date(item.created_at).toLocaleDateString('ja-JP') : "2025/9/22";
       case 'validationResult':
         return getValidationBadge(item);
       case 'operations':
@@ -118,6 +131,24 @@ export default function DataListPage() {
     acc[folder].push(item);
     return acc;
   }, {});
+
+  // ファイル別にデータをグループ化（複数商品対応）- sourceFileIdを使用
+  const groupedByFile = extractedData.reduce((acc: Record<string, ExtractedData[]>, item: ExtractedData) => {
+    // 新しいsourceFileIdフィールドを優先的に使用
+    const fileId = (item as any).sourceFileId || (item as any).uploadedFileId || item.id;
+    if (!acc[fileId]) acc[fileId] = [];
+    acc[fileId].push(item);
+    return acc;
+  }, {});
+
+  // 複数商品を含むファイルを識別
+  const multiProductFiles = Object.entries(groupedByFile).filter(([fileId, products]) => (products as ExtractedData[]).length > 1);
+  
+  console.log("🔍 GROUPED BY FILE:", Object.keys(groupedByFile).length, "files");
+  console.log("🔍 MULTI-PRODUCT FILES:", multiProductFiles.length, "files with multiple products");
+  multiProductFiles.forEach(([fileId, products]) => {
+    console.log(`  📁 File ${fileId}: ${(products as ExtractedData[]).length} products`);
+  });
 
   // CSV出力ハンドラー
   const handleCsvExport = async (format: string) => {
@@ -160,8 +191,14 @@ export default function DataListPage() {
            item.productName.trim() === '';
   };
 
-  // フィルタリングロジック
-  const filteredData = extractedData.filter((item: ExtractedData) => {
+  // Get unique files (group by sourceFileId and show only one representative item per file)
+  const uniqueFiles = Object.values(groupedByFile).map((fileProducts) => {
+    // Return the first product as the representative for the file
+    return (fileProducts as ExtractedData[])[0];
+  });
+
+  // フィルタリングロジック for file-based display
+  const filteredData = uniqueFiles.filter((item: ExtractedData) => {
     const matchesSearch = !searchTerm || 
       item.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item as any).rawText?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -193,8 +230,8 @@ export default function DataListPage() {
   const categories = Array.from(new Set(extractedData.map((item: ExtractedData) => item.category).filter(Boolean))) as string[];
 
   const handleRowClick = (item: ExtractedData) => {
-    setSelectedItem(item);
-    setIsEnhancedEditorOpen(true);
+    setEditingItem(item);
+    setShowDataEditScreen(true);
   };
 
   const handleModalClose = () => {
@@ -207,6 +244,52 @@ export default function DataListPage() {
     setIsEnhancedEditorOpen(false);
     setSelectedItem(null);
     refetch(); // データを再取得
+  };
+
+  // 複数商品編集ハンドラー
+  const handleMultiProductEdit = (products: ExtractedData[]) => {
+    console.log("🎯 MULTI-PRODUCT EDIT CLICKED:", products.length, "products");
+    console.log("Products data:", products);
+    setSelectedProducts(products);
+    setIsMultiProductEditorOpen(true);
+  };
+
+  const handleMultiProductEditorClose = () => {
+    setIsMultiProductEditorOpen(false);
+    setSelectedProducts([]);
+    refetch(); // データを再取得
+  };
+
+  // Right panel handlers for multi-product list
+  const handleShowRightPanel = (products: ExtractedData[], fileName: string) => {
+    setSelectedFileProducts(products);
+    setRightPanelFileName(fileName);
+    setRightPanelVisible(true);
+  };
+
+  const handleCloseRightPanel = () => {
+    setRightPanelVisible(false);
+    setSelectedFileProducts([]);
+    setRightPanelFileName("");
+  };
+
+  const handleRightPanelProductClick = (product: ExtractedData) => {
+    setSelectedItem(product);
+    setIsDetailModalOpen(true);
+  };
+
+  // Data edit screen handlers
+  const handleDataEditBack = () => {
+    setShowDataEditScreen(false);
+    setEditingItem(null);
+  };
+
+  const handleDataEditSaveSuccess = () => {
+    refetch(); // データを再取得
+  };
+
+  const handleProductSelect = (product: ExtractedData) => {
+    setEditingItem(product);
   };
 
   const getStatusBadge = (item: ExtractedData) => {
@@ -247,7 +330,9 @@ export default function DataListPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="relative flex h-screen">
+      {/* Main content area */}
+      <div className={`flex-1 transition-all duration-300 ${rightPanelVisible ? 'mr-96' : 'mr-0'} container mx-auto px-4 py-8 overflow-y-auto`}>
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
@@ -533,7 +618,7 @@ export default function DataListPage() {
                               <TableHead>ファイル名</TableHead>
                               <TableHead>処理ステータス</TableHead>
                               <TableHead>作成日</TableHead>
-                              <TableHead className="w-32">操作</TableHead>
+                              <TableHead className="w-48">操作</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -563,17 +648,45 @@ export default function DataListPage() {
                                   {item.created_at ? new Date(item.created_at).toLocaleDateString('ja-JP') : '-'}
                                 </TableCell>
                                 <TableCell>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleRowClick(item);
-                                    }}
-                                  >
-                                    <EyeIcon className="w-4 h-4 mr-1" />
-                                    明細表示
-                                  </Button>
+                                  <div className="flex space-x-1">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRowClick(item);
+                                      }}
+                                    >
+                                      <EditIcon className="w-4 h-4 mr-1" />
+                                      個別編集
+                                    </Button>
+                                    {(() => {
+                                      const fileId = (item as any).sourceFileId || (item as any).uploadedFileId || item.id;
+                                      const sameFileProducts = groupedByFile[fileId] as ExtractedData[] || [];
+                                      const isMultiProduct = (item as any).isMultiProduct || sameFileProducts.length > 1;
+                                      
+                                      console.log(`🔍 FOLDER VIEW - OPERATIONS for item ${item.id}:`);
+                                      console.log(`  📁 sourceFileId: ${(item as any).sourceFileId}`);
+                                      console.log(`  📄 uploadedFileId: ${(item as any).uploadedFileId}`);
+                                      console.log(`  🗂️ Final fileId: ${fileId}`);
+                                      console.log(`  👥 Same file products: ${sameFileProducts.length}`);
+                                      console.log(`  ✅ Show multi-product button: ${isMultiProduct}`);
+                                      
+                                      return isMultiProduct && (
+                                        <Button
+                                          size="sm"
+                                          variant="secondary"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleShowRightPanel(sameFileProducts, getDisplayFileName(item));
+                                          }}
+                                        >
+                                          <ListIcon className="w-4 h-4 mr-1" />
+                                          一覧編集 ({sameFileProducts.length})
+                                        </Button>
+                                      );
+                                    })()}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -638,6 +751,36 @@ export default function DataListPage() {
         onClose={handleEnhancedEditorClose}
         item={selectedItem}
       />
+
+        {/* 複数商品編集モーダル */}
+        <MultiProductEditor
+          isOpen={isMultiProductEditorOpen}
+          onClose={handleMultiProductEditorClose}
+          products={selectedProducts}
+          fileName={selectedProducts.length > 0 ? getDisplayFileName(selectedProducts[0]) : undefined}
+        />
+      </div>
+
+      {/* Right Panel for Multi-Product List */}
+      <RightPanelMultiList
+        products={selectedFileProducts}
+        fileName={rightPanelFileName}
+        isVisible={rightPanelVisible}
+        onClose={handleCloseRightPanel}
+        onProductClick={handleRightPanelProductClick}
+      />
+
+      {/* Data Edit Screen */}
+      {showDataEditScreen && editingItem && (
+        <div className="fixed inset-0 z-50 bg-white">
+          <DataEditScreen
+            item={editingItem}
+            onBack={handleDataEditBack}
+            onSaveSuccess={handleDataEditSaveSuccess}
+            onProductSelect={handleProductSelect}
+          />
+        </div>
+      )}
     </div>
   );
 }

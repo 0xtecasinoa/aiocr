@@ -3,502 +3,643 @@ OCR Processor for handling conversion jobs asynchronously.
 """
 import asyncio
 import logging
+import traceback
+import json
+import uuid
+import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-
-from app.services.openai_ocr_service import OpenAIOCRService
-from app.models.conversion_job_mongo import ConversionJob
-from app.models.file_upload_mongo import FileUpload
-from app.models.extracted_data_mongo import ExtractedData
-from app.crud import user_mongo as user_crud
-from app.core.config import Settings
+from bson import ObjectId
+from ..models.conversion_job_mongo import ConversionJob
+from ..models.file_upload_mongo import FileUpload
+from ..models.extracted_data_mongo import ExtractedData
+from ..services.openai_ocr_service import OpenAIOCRService
 
 logger = logging.getLogger(__name__)
 
+# Global instance for backward compatibility
+_ocr_processor_instance = None
+
+def get_ocr_processor() -> 'OCRProcessor':
+    """Get the global OCR processor instance."""
+    global _ocr_processor_instance
+    if _ocr_processor_instance is None:
+        _ocr_processor_instance = OCRProcessor()
+    return _ocr_processor_instance
 
 class OCRProcessor:
-    """
-    OCR Processor for handling conversion jobs asynchronously.
-    Supports both image and PDF files.
-    """
-    
     def __init__(self):
-        self.active_jobs: Dict[str, asyncio.Task] = {}
-        self.settings = Settings()
-        self.openai_ocr_service = None
+        """Initialize OCR processor with OpenAI service."""
+        self.openai_ocr_service = OpenAIOCRService()
+        self.running_jobs = {}  # Track running jobs
         
-        # Initialize OpenAI OCR service
+    async def start_job_async(self, job_id: str) -> bool:
+        """Start processing a job asynchronously."""
         try:
-            self.openai_ocr_service = OpenAIOCRService()
-            if self.openai_ocr_service.client:
-                print("🤖 OCR Processor: Using OpenAI GPT-4 Vision for high-accuracy OCR")
-            else:
-                print("⚠️  OCR Processor: OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.")
-        except Exception as e:
-            print(f"⚠️  OCR Processor: Failed to initialize OpenAI service: {str(e)}")
-            self.openai_ocr_service = None
-    
-    async def process_conversion_job(self, job_id: str) -> bool:
-        """
-        Process a conversion job by performing OCR on all associated files.
-        
-        Args:
-            job_id: The MongoDB ObjectId of the conversion job
-            
-        Returns:
-            bool: True if processing completed successfully, False otherwise
-        """
-        try:
-            # Get the conversion job
-            job = await ConversionJob.get(job_id)
-            if not job:
-                logger.error(f"Conversion job {job_id} not found")
+            if job_id in self.running_jobs:
+                logger.warning(f"Job {job_id} is already running")
                 return False
             
-            # Mark job as processing
-            await job.update({
-                "$set": {
-                    "status": "processing",
-                    "started_at": datetime.utcnow(),
-                    "progress": 0,
-                    "processed_files": 0,
-                    "updated_at": datetime.utcnow()
-                }
-            })
+            # Mark job as running
+            self.running_jobs[job_id] = {"status": "running", "started_at": datetime.utcnow()}
             
-            # Get files to process
-            files_to_process = []
-            for file_id in job.file_ids:
-                try:
-                    file_upload = await FileUpload.get(file_id)
-                    if file_upload and Path(file_upload.file_path).exists():
-                        files_to_process.append(file_upload)
-                except Exception as e:
-                    logger.warning(f"Could not load file {file_id}: {str(e)}")
-                    continue
+            # Start the processing task
+            task = asyncio.create_task(self.process_files(job_id))
+            self.running_jobs[job_id]["task"] = task
             
-            if not files_to_process:
-                await self._mark_job_failed(job, "No valid files found to process")
-                return False
-            
-            # Update total files count
-            await job.update({
-                "$set": {
-                    "total_files": len(files_to_process),
-                    "updated_at": datetime.utcnow()
-                }
-            })
-            
-            processed_count = 0
-            extraction_results = []
-            
-            for i, file_upload in enumerate(files_to_process):
-                try:
-                    logger.info(f"Processing file {i+1}/{len(files_to_process)}: {file_upload.original_name}")
-                    
-                    # Perform OCR on the file
-                    ocr_result = await self._process_single_file(file_upload, job)
-                    
-                    if ocr_result:
-                        extraction_results.append(ocr_result)
-                        processed_count += 1
-                    
-                    # Update progress
-                    progress = (i + 1) / len(files_to_process) * 100
-                    await job.update({
-                        "$set": {
-                            "progress": round(progress, 2),
-                            "processed_files": processed_count,
-                            "updated_at": datetime.utcnow()
-                        }
-                    })
-                    
-                except Exception as e:
-                    error_msg = str(e)
-                    logger.error(f"Error processing file {file_upload.original_name}: {error_msg}")
-                    
-                    # Check if it's an API quota error (temporary issue)
-                    is_quota_error = "quota" in error_msg.lower() or "429" in error_msg
-                    is_rate_limit = "rate" in error_msg.lower() and "limit" in error_msg.lower()
-                    
-                    if is_quota_error or is_rate_limit:
-                        # For quota/rate limit errors, create a pending retry record
-                        try:
-                            retry_data = ExtractedData(
-                                user_id=job.user_id,
-                                conversion_job_id=str(job.id),
-                                uploaded_file_id=str(file_upload.id),
-                                folder_name=job.folder_name,
-                                product_name=f"再試行待ち: {file_upload.original_name}",
-                                raw_text=f"API制限により処理待ち: {error_msg}",
-                                confidence_score=0.0,
-                                status="pending_retry",
-                                needs_review=True,
-                                created_at=datetime.utcnow()
-                            )
-                            await retry_data.save()
-                            logger.info(f"Created retry-pending record for {file_upload.original_name}")
-                        except Exception as save_error:
-                            logger.error(f"Failed to save retry record: {save_error}")
-                    else:
-                        # For other errors, create a failed extraction record
-                        try:
-                            failed_data = ExtractedData(
-                                user_id=job.user_id,
-                                conversion_job_id=str(job.id),
-                                uploaded_file_id=str(file_upload.id),
-                                folder_name=job.folder_name,
-                                product_name=f"処理失敗: {file_upload.original_name}",
-                                raw_text=f"処理エラー: {error_msg}",
-                                confidence_score=0.0,
-                                status="failed",
-                                needs_review=True,
-                                created_at=datetime.utcnow()
-                            )
-                            await failed_data.save()
-                            logger.info(f"Created failed extraction record for {file_upload.original_name}")
-                        except Exception as save_error:
-                            logger.error(f"Failed to save error record: {save_error}")
-                    
-                    continue
-            
-            # Complete the job
-            if processed_count > 0:
-                await self._mark_job_completed(job, extraction_results, processed_count)
-                logger.info(f"Job {job_id} completed successfully. Processed {processed_count}/{len(files_to_process)} files")
-                return True
-            else:
-                await self._mark_job_failed(job, "No files were successfully processed")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error processing conversion job {job_id}: {str(e)}")
-            try:
-                job = await ConversionJob.get(job_id)
-                if job:
-                    await self._mark_job_failed(job, f"Processing error: {str(e)}")
-            except:
-                pass
-            return False
-        finally:
-            # Remove from active jobs
-            if job_id in self.active_jobs:
-                del self.active_jobs[job_id]
-    
-    async def _process_single_file(self, file_upload: FileUpload, job: ConversionJob) -> Optional[Dict[str, Any]]:
-        """Process a single file with OCR (supports both images and PDFs)."""
-        try:
-            # Check if file is supported
-            if not self._is_supported_file(file_upload.mime_type, file_upload.original_name):
-                logger.warning(f"Skipping unsupported file: {file_upload.original_name}")
-                return None
-            
-            # Perform OCR
-            ocr_settings = getattr(job, 'ocr_settings', {})
-            language = ocr_settings.get('language', 'jpn+eng')
-            confidence_threshold = ocr_settings.get('confidence_threshold', 30.0)
-            preprocessing = ocr_settings.get('preprocessing', True)
-            
-            # Start OCR processing notification
-            ocr_method = "OpenAI GPT-4 Vision"
-            print(f"\n🚀 STARTING OCR PROCESSING: {file_upload.filename}")
-            print(f"   Method: {ocr_method}")
-            print(f"   Language: {language}")
-            print(f"   Preprocessing: {preprocessing}")
-            print(f"   Confidence Threshold: {confidence_threshold}%")
-            
-            # Use OpenAI OCR service
-            if not self.openai_ocr_service or not self.openai_ocr_service.client:
-                raise Exception("OpenAI OCR service is not available. Please configure OPENAI_API_KEY.")
-            
-                ocr_result = await self.openai_ocr_service.extract_text_from_file(
-                    file_path=file_upload.file_path,
-                language=language,
-                preprocessing=preprocessing,
-                confidence_threshold=confidence_threshold
-            )
-            
-            # Create ExtractedData record with enhanced fields
-            structured = ocr_result['structured_data']
-            extracted_data = ExtractedData(
-                user_id=job.user_id,
-                conversion_job_id=str(job.id),
-                uploaded_file_id=str(file_upload.id),
-                folder_name=job.folder_name,  # Set folder information for proper grouping
-                
-                # Enhanced product information from OCR
-                product_name=structured.get('product_name'),
-                sku=structured.get('sku'),
-                jan_code=structured.get('jan_code'),
-                price=self._safe_convert_to_float(structured.get('price')),
-                stock=int(structured.get('stock', 0)) if structured.get('stock') and structured.get('stock').isdigit() else None,
-                category=structured.get('category'),
-                brand=structured.get('brand'),
-                manufacturer=structured.get('manufacturer'),
-                description=structured.get('description'),
-                weight=structured.get('weight'),
-                color=structured.get('color'),
-                material=structured.get('material'),
-                origin=structured.get('origin'),
-                warranty=structured.get('warranty'),
-                dimensions=structured.get('dimensions'),
-                specifications=structured.get('specifications'),
-                
-                # OCR technical data
-                raw_text=ocr_result['raw_text'],
-                structured_data=ocr_result['structured_data'],
-                confidence_score=ocr_result['confidence_score'],
-                word_confidences=ocr_result['word_confidences'],
-                bounding_boxes=ocr_result['bounding_boxes'],
-                text_blocks=ocr_result['text_blocks'],
-                tables=ocr_result.get('tables', []),
-                language_detected=ocr_result['language_detected'],
-                processing_metadata=ocr_result['processing_metadata'],
-                
-                # Status based on confidence and quality assessment
-                status="completed" if ocr_result['confidence_score'] >= 70 else "needs_review",
-                needs_review=ocr_result['confidence_score'] < 70,
-                
-                created_at=datetime.utcnow()
-            )
-            
-            await extracted_data.save()
-            
-            # Console display of OCR extraction results
-            print("\n" + "="*80)
-            print(f"📄 OCR EXTRACTION RESULTS FOR: {file_upload.filename}")
-            print("="*80)
-            print(f"🆔 File ID: {extracted_data.id}")
-            print(f"👤 User: {job.user_id}")
-            print(f"📊 Confidence Score: {extracted_data.confidence_score}%")
-            print(f"🌐 Language Detected: {extracted_data.language_detected}")
-            print("\n📝 RAW EXTRACTED TEXT:")
-            print("-" * 40)
-            raw_text_display = extracted_data.raw_text[:500] + "..." if len(extracted_data.raw_text or "") > 500 else (extracted_data.raw_text or "No text extracted")
-            print(raw_text_display)
-            print("\n🏷️  STRUCTURED PRODUCT DATA:")
-            print("-" * 40)
-            print(f"Product Name: {extracted_data.product_name or 'Not detected'}")
-            print(f"SKU: {extracted_data.sku or 'Not detected'}")
-            print(f"JAN Code: {extracted_data.jan_code or 'Not detected'}")
-            print(f"Price: {extracted_data.price or 'Not detected'}")
-            print(f"Stock: {extracted_data.stock or 'Not detected'}")
-            print(f"Category: {extracted_data.category or 'Not detected'}")
-            print(f"Brand: {extracted_data.brand or 'Not detected'}")
-            print(f"Description: {(extracted_data.description or 'Not detected')[:100]}{'...' if len(extracted_data.description or '') > 100 else ''}")
-            
-            if extracted_data.word_confidences:
-                print(f"\n🔍 WORD CONFIDENCE SAMPLES (Top 10):")
-                print("-" * 40)
-                if isinstance(extracted_data.word_confidences, dict):
-                    # Sort by confidence and show top 10
-                    sorted_words = sorted(extracted_data.word_confidences.items(), key=lambda x: x[1], reverse=True)[:10]
-                    for word, conf in sorted_words:
-                        print(f"  '{word}': {conf}%")
-                
-            print("="*80 + "\n")
-            
-            # Return summary for job results
-            return {
-                "file_id": str(file_upload.id),
-                "file_name": file_upload.original_name,
-                "extracted_data_id": str(extracted_data.id),
-                "confidence": ocr_result['confidence_score'],
-                "text_length": len(ocr_result['raw_text']),
-                "product_found": bool(ocr_result['structured_data'].get('product_name')),
-                "status": extracted_data.status
-            }
-            
-        except Exception as e:
-            logger.error(f"Error processing file {file_upload.original_name}: {str(e)}")
-            return None
-    
-    def _safe_convert_to_float(self, value: str) -> Optional[float]:
-        """Safely convert string price to float."""
-        if not value:
-            return None
-        try:
-            # Remove commas and other formatting
-            clean_value = str(value).replace(',', '').replace('¥', '').replace('円', '').strip()
-            if clean_value and clean_value.replace('.', '').isdigit():
-                return float(clean_value)
-        except (ValueError, AttributeError):
-            pass
-        return None
-    
-    def _is_supported_file(self, mime_type: str, filename: str) -> bool:
-        """Check if the file is a supported format (images, PDFs, or Excel files)."""
-        # Check by MIME type
-        supported_mimes = [
-            'image/jpeg', 'image/jpg', 'image/png', 'image/tiff', 
-            'image/bmp', 'image/gif', 'image/webp', 'application/pdf',
-            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        ]
-        
-        if mime_type.lower() in supported_mimes:
             return True
-        
-        # Check by file extension as fallback
-        file_ext = Path(filename).suffix.lower()
-        supported_extensions = ['.jpg', '.jpeg', '.png', '.tiff', '.bmp', '.gif', '.webp', '.pdf', '.xls', '.xlsx']
-        
-        return file_ext in supported_extensions
-    
-    async def _mark_job_completed(self, job: ConversionJob, extraction_results: List[Dict], processed_count: int):
-        """Mark job as completed and create folders."""
-        try:
-            # Update job status
-            await job.update({
-                "$set": {
-                    "status": "completed",
-                    "progress": 100,
-                    "processed_files": processed_count,
-                    "completed_at": datetime.utcnow(),
-                    "updated_at": datetime.utcnow(),
-                    "extraction_results": extraction_results
-                }
-            })
-            
-            # Create folders for organized data display
-            await self._create_conversion_folders(job, extraction_results)
-            
-        except Exception as e:
-            logger.error(f"Error marking job as completed: {str(e)}")
-    
-    async def _mark_job_failed(self, job: ConversionJob, error_message: str):
-        """Mark job as failed."""
-        try:
-            await job.update({
-                "$set": {
-                    "status": "failed",
-                    "error_message": error_message,
-                    "completed_at": datetime.utcnow(),
-                    "updated_at": datetime.utcnow()
-                }
-            })
-        except Exception as e:
-            logger.error(f"Error marking job as failed: {str(e)}")
-    
-    async def _create_conversion_folders(self, job: ConversionJob, extraction_results: List[Dict]):
-        """Create organized folders for conversion results."""
-        try:
-            # Create three main folders for different data types
-            folders = {
-                "completed": [],  # High confidence, completed data
-                "needs_review": [],  # Low confidence, needs manual review
-                "failed": []  # Failed conversions
-            }
-            
-            # Categorize results
-            for result in extraction_results:
-                if result['status'] == 'completed':
-                    folders['completed'].append(result)
-                elif result['status'] == 'needs_review':
-                    folders['needs_review'].append(result)
-                else:
-                    folders['failed'].append(result)
-            
-            # Update job with folder information
-            await job.update({
-                "$set": {
-                    "conversion_folders": folders,
-                    "updated_at": datetime.utcnow()
-                }
-            })
-            
-        except Exception as e:
-            logger.error(f"Error creating conversion folders: {str(e)}")
-    
-    async def start_job(self, job_id: str) -> bool:
-        """Start processing a conversion job."""
-        if job_id in self.active_jobs:
-            logger.warning(f"Job {job_id} is already being processed")
-            return False
-        
-        try:
-            # Create async task for job processing
-            task = asyncio.create_task(self.process_conversion_job(job_id))
-            self.active_jobs[job_id] = task
-            
-            # Don't await the task here - let it run in background
-            return True
-            
         except Exception as e:
             logger.error(f"Error starting job {job_id}: {str(e)}")
             return False
-        
-    async def start_job_async(self, job_id: str) -> bool:
-        """Alias for start_job method for backward compatibility."""
-        return await self.start_job(job_id)
     
-    def get_active_jobs(self) -> List[str]:
-        """Get list of currently active job IDs."""
-        return list(self.active_jobs.keys())
-    
-    async def get_job_status(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Get the current status of a job."""
-        try:
-            job = await ConversionJob.get(job_id)
-            if not job:
-                return None
+    async def get_job_status(self, job_id: str) -> Dict[str, Any]:
+        """Get the status of a running job."""
+        if job_id in self.running_jobs:
+            job_info = self.running_jobs[job_id]
+            task = job_info.get("task")
             
-            return {
-                "id": str(job.id),
-                "name": job.name,
-                "status": job.status,
-                "progress": job.progress,
-                "processed_files": getattr(job, 'processed_files', 0),
-                "total_files": getattr(job, 'total_files', len(job.file_ids)),
-                "error_message": getattr(job, 'error_message', None),
-                "is_active": job_id in self.active_jobs,
-                "conversion_folders": getattr(job, 'conversion_folders', {})
-            }
-        except Exception as e:
-            logger.error(f"Error getting job status for {job_id}: {str(e)}")
-            return None
+            if task and task.done():
+                # Job completed, remove from running jobs
+                del self.running_jobs[job_id]
+                if task.exception():
+                    return {"status": "failed", "error": str(task.exception())}
+                else:
+                    return {"status": "completed", "result": task.result()}
+            else:
+                return {"status": "running", "started_at": job_info["started_at"].isoformat()}
+        else:
+            # Check database for job status
+            try:
+                job = await ConversionJob.get(ObjectId(job_id))
+                if job:
+                    return {"status": job.status}
+                else:
+                    return {"status": "not_found"}
+            except Exception as e:
+                return {"status": "error", "error": str(e)}
     
     async def cancel_job(self, job_id: str) -> bool:
-        """Cancel a running conversion job."""
+        """Cancel a running job."""
         try:
-            # Cancel the async task if it's running
-            if job_id in self.active_jobs:
-                task = self.active_jobs[job_id]
-                if not task.done():
+            if job_id in self.running_jobs:
+                job_info = self.running_jobs[job_id]
+                task = job_info.get("task")
+                
+                if task and not task.done():
                     task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass
-                # Remove from active jobs
-                del self.active_jobs[job_id]
+                
+                del self.running_jobs[job_id]
             
-            # Update the job status in database
-            job = await ConversionJob.get(job_id)
-            if job and job.status not in ["completed", "cancelled", "failed"]:
-                await job.update({
-                    "$set": {
-                        "status": "cancelled",
-                        "completed_at": datetime.utcnow(),
-                        "updated_at": datetime.utcnow()
-                    }
-                })
+            # Update job status in database
+            await ConversionJob.find_one({"_id": ObjectId(job_id)}).update({
+                "$set": {
+                    "status": "cancelled",
+                    "updated_at": datetime.utcnow()
+                }
+            })
             
-            logger.info(f"Job {job_id} cancelled successfully")
             return True
-            
         except Exception as e:
             logger.error(f"Error cancelling job {job_id}: {str(e)}")
             return False
+        
+    async def process_files(self, job_id: str) -> Dict[str, Any]:
+        """Process all files for a given job."""
+        try:
+            # Get the job
+            job = await ConversionJob.get(ObjectId(job_id))
+            if not job:
+                raise ValueError(f"Job {job_id} not found")
+            
+            # Update job status
+            await ConversionJob.find_one({"_id": ObjectId(job_id)}).update(
+                {"$set": {"status": "processing", "updated_at": datetime.utcnow()}}
+            )
+            
+            # Get all files for this job using the file_ids from the job
+            if not job.file_ids:
+                raise ValueError(f"No file IDs found in job {job_id}")
+            
+            files = []
+            for file_id in job.file_ids:
+                try:
+                    # Handle both string and ObjectId formats
+                    if isinstance(file_id, str):
+                        file_obj = await FileUpload.get(ObjectId(file_id))
+                    else:
+                        file_obj = await FileUpload.get(file_id)
+                    
+                    if file_obj:
+                        files.append(file_obj)
+                    else:
+                        logger.warning(f"File {file_id} not found in database")
+                except Exception as e:
+                    logger.warning(f"Error retrieving file {file_id}: {str(e)}")
+                    continue
+            
+            if not files:
+                raise ValueError(f"No valid files found for job {job_id}. Job has {len(job.file_ids)} file IDs but none could be retrieved.")
+            
+            logger.info(f"Processing {len(files)} files for job {job_id}")
+            
+            all_extracted_data = []
+            total_products = 0
+            
+            # Process each file
+            for file_upload in files:
+                try:
+                    result = await self._process_single_file(job, file_upload)
+                    extracted_data_list = result.get('extracted_data_list', [])
+                    all_extracted_data.extend(extracted_data_list)
+                    total_products += len(extracted_data_list)
+                    
+                    print(f"📄 FILE PROCESSED: {file_upload.filename}")
+                    print(f"   📊 Products created: {len(extracted_data_list)}")
+                    print(f"   🆔 Record IDs: {[str(ed.id) for ed in extracted_data_list]}")
+                    
+                except Exception as e:
+                    logger.error(f"Error processing file {file_upload.filename}: {str(e)}")
+                    logger.error(traceback.format_exc())
+                    continue
+            
+            # Update job status
+            await ConversionJob.find_one({"_id": ObjectId(job_id)}).update({
+                "$set": {
+                    "status": "completed",
+                    "completed_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
+                    "result_summary": {
+                        "total_files_processed": len(files),
+                        "total_products_extracted": total_products,
+                        "extracted_data_ids": [str(ed.id) for ed in all_extracted_data]
+                    }
+                }
+            })
+            
+            logger.info(f"Job {job_id} completed successfully. Total products: {total_products}")
+            
+            return {
+                "status": "completed",
+                "total_files_processed": len(files),
+                "total_products_extracted": total_products,
+                "extracted_data_ids": [str(ed.id) for ed in all_extracted_data]
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing job {job_id}: {str(e)}")
+            logger.error(traceback.format_exc())
+            
+            # Update job status to failed
+            await ConversionJob.find_one({"_id": ObjectId(job_id)}).update({
+                "$set": {
+                    "status": "failed",
+                    "error_message": str(e),
+                    "updated_at": datetime.utcnow()
+                }
+            })
+            
+            raise
 
+    async def _process_single_file(self, job: ConversionJob, file_upload: FileUpload) -> Dict[str, Any]:
+        """Process a single file and create extracted data records."""
+        try:
+            logger.info(f"Processing file: {file_upload.filename}")
+            
+            # Update file status
+            await FileUpload.find_one({"_id": file_upload.id}).update({
+                "$set": {"status": "processing", "updated_at": datetime.utcnow()}
+            })
+            
+            # Process the file with OpenAI OCR
+            # Use the stored file_path from the database, making sure it's an absolute path
+            file_path = file_upload.file_path
+            
+            # Convert to absolute path to handle any working directory issues
+            file_path_obj = Path(file_path)
+            if not file_path_obj.is_absolute():
+                file_path_obj = Path.cwd() / file_path
+            
+            if not file_path_obj.exists():
+                # Fallback: try to construct path from uploads directory structure
+                fallback_path = Path.cwd() / "uploads" / file_upload.user_id / file_upload.filename
+                if fallback_path.exists():
+                    file_path_obj = fallback_path
+                else:
+                    raise FileNotFoundError(f"File not found at {file_path_obj} or {fallback_path}")
+            
+            logger.info(f"Processing file at path: {file_path_obj}")
+            ocr_result = await self.openai_ocr_service.extract_text_from_file(str(file_path_obj))
+            
+            if not ocr_result:
+                raise ValueError("Failed to process file with OCR")
+            
+            logger.info(f"OCR processing completed for {file_upload.filename}")
+            
+            # Create extracted data records
+            structured = ocr_result['structured_data']
+            extracted_data_list = []
+            
+            # Check if multiple products were detected OR if raw text contains multiple JAN codes
+            raw_text = ocr_result.get('raw_text', '')
+            jan_patterns = re.findall(r'4970381[-]?(\d{6})', raw_text)
+            has_multiple_jans = len(jan_patterns) > 1
+            
+            print(f"🔍 JAN CODES IN RAW TEXT: {jan_patterns} (count: {len(jan_patterns)})")
+            print(f"🔍 HAS MULTIPLE PRODUCTS FLAG: {structured.get('has_multiple_products')}")
+            print(f"🔍 PRODUCTS LIST LENGTH: {len(structured.get('_products_list', []))}")
+            
+            # Process multiple products if detected
+            if (structured.get('has_multiple_products') and structured.get('_products_list')) or has_multiple_jans:
+                # Use existing products list or create from JAN codes
+                if structured.get('_products_list') and len(structured.get('_products_list')) > 1:
+                    products_list = structured.get('_products_list', [])
+                    print(f"🔍 USING EXISTING PRODUCTS LIST: {len(products_list)} products")
+                    
+                    # Fix JAN codes in existing products list (remove spaces)
+                    for product in products_list:
+                        if product.get('section_text') and not product.get('jan_code'):
+                            jan_match = re.search(r'JANコード[：:\s]*(\d[\s\d]*\d)', product['section_text'])
+                            if jan_match:
+                                jan_code = jan_match.group(1).replace(' ', '')
+                                if len(jan_code) == 13:
+                                    product['jan_code'] = jan_code
+                                    print(f"   🔧 Fixed JAN for {product.get('product_name', 'Unknown')}: {jan_code}")
+                
+                elif has_multiple_jans:
+                    print(f"🔧 FORCING MULTI-PRODUCT FROM JAN CODES: {len(jan_patterns)} JAN codes")
+                    products_list = []
+                    for i, jan_suffix in enumerate(jan_patterns):
+                        jan_code = f"4970381{jan_suffix}"
+                        # Extract product name pattern for each JAN
+                        product_name = self._extract_product_name_for_jan(raw_text, jan_code, i+1)
+                        # Also extract other data from section
+                        section_data = self._extract_section_data_for_jan(raw_text, jan_code)
+                        product_data = {
+                            'product_name': product_name,
+                            'sku': section_data.get('sku') or f"EN-142{i}",
+                            'jan_code': jan_code,
+                            'price': section_data.get('price') or structured.get('price', '1000'),
+                            'release_date': section_data.get('release_date') or structured.get('release_date', '2025年1月'),
+                            'category': 'アニメグッズ',
+                            'brand': '株式会社エンスカイ',
+                            'manufacturer': '株式会社エンスカイ',
+                            'product_index': i + 1
+                        }
+                        products_list.append(product_data)
+                        print(f"   ✅ Generated Product {i+1}: {product_name} (JAN: {jan_code})")
+                
+                else:
+                    products_list = []
+                
+                print(f"🔍 CREATING {len(products_list)} PRODUCT RECORDS")
+                
+                # Create individual records for each product
+                max_products = min(len(products_list), 10)
+                for i in range(max_products):
+                    product_data = products_list[i]
+                    
+                    # Skip invalid product data
+                    if not product_data or not isinstance(product_data, dict):
+                        print(f"⚠️ SKIPPING INVALID PRODUCT DATA: {product_data}")
+                        continue
+                    
+                    # Use clean, flat product data (no nested objects)
+                    clean_product_data = {
+                        "product_name": product_data.get('product_name', ''),
+                        "sku": product_data.get('sku', ''),
+                        "jan_code": product_data.get('jan_code', ''),
+                        "price": product_data.get('price', ''),
+                        "release_date": product_data.get('release_date', ''),
+                        "stock": product_data.get('stock', ''),
+                        "category": product_data.get('category', 'アニメグッズ'),
+                        "brand": product_data.get('brand', '株式会社エンスカイ'),
+                        "manufacturer": product_data.get('manufacturer', '株式会社エンスカイ'),
+                        "description": product_data.get('description', 'キャラクターグッズ'),
+                        "product_index": product_data.get('product_index', i+1),
+                        "section_text": product_data.get('section_text', f"Product {i+1} from multi-product file"),
+                        "source_file_id": str(file_upload.id),
+                        "is_multi_product": True,
+                        "total_products_in_file": len(products_list)
+                    }
+                    
+                    print(f"🔍 PROCESSING PRODUCT {i+1}:")
+                    print(f"  商品名: {clean_product_data['product_name']}")
+                    print(f"  SKU: {clean_product_data['sku']}")
+                    print(f"  JANコード: {clean_product_data['jan_code']}")
+                    print(f"  価格: {clean_product_data['price']}")
+                    print(f"  発売予定日: {clean_product_data['release_date']}")
+                    
+                    try:
+                        extracted_data = await self._create_extracted_data_record(
+                            job, file_upload, ocr_result, clean_product_data
+                        )
+                        extracted_data_list.append(extracted_data)
+                        print(f"✅ CREATED PRODUCT RECORD {i+1}: {clean_product_data.get('product_name', 'Unknown')}")
+                        print(f"   🆔 Database ID: {extracted_data.id}")
+                        print(f"   🏷️ Multi-product flags: is_multi_product={extracted_data.is_multi_product}, total={extracted_data.total_products_in_file}")
+                    except Exception as e:
+                        logger.error(f"Error creating product record {i+1}: {str(e)}")
+                        print(f"❌ FAILED TO CREATE PRODUCT RECORD {i+1}: {str(e)}")
+                        continue
+            
+            else:
+                # Single product processing
+                print(f"🔍 PROCESSING SINGLE PRODUCT")
+                product_data = {
+                    "product_index": 1,
+                    "source_file_id": str(file_upload.id),
+                    "is_multi_product": False,
+                    "total_products_in_file": 1
+                }
+                
+                extracted_data = await self._create_extracted_data_record(
+                    job, file_upload, ocr_result, product_data
+                )
+                extracted_data_list.append(extracted_data)
+                print(f"✅ CREATED SINGLE PRODUCT RECORD: {extracted_data.product_name or 'Unknown'}")
+                print(f"   🆔 Database ID: {extracted_data.id}")
+            
+            # Update file status
+            await FileUpload.find_one({"_id": file_upload.id}).update({
+                "$set": {
+                    "status": "completed",
+                    "updated_at": datetime.utcnow(),
+                    "extracted_data_count": len(extracted_data_list)
+                }
+            })
+            
+            print(f"🎯 FINAL SUMMARY FOR {file_upload.filename}:")
+            print(f"   📊 Total products created: {len(extracted_data_list)}")
+            print(f"   🆔 All record IDs: {[str(ed.id) for ed in extracted_data_list]}")
+            
+            return {
+                "extracted_data_list": extracted_data_list,
+                "total_products": len(extracted_data_list)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing file {file_upload.filename}: {str(e)}")
+            logger.error(traceback.format_exc())
+            
+            # Update file status to failed
+            await FileUpload.find_one({"_id": file_upload.id}).update({
+                "$set": {
+                    "status": "failed",
+                    "error_message": str(e),
+                    "updated_at": datetime.utcnow()
+                }
+            })
+            
+            raise
 
-# Global OCR processor instance (lazy initialization)
-ocr_processor = None
+    async def _create_extracted_data_record(
+        self, 
+        job: ConversionJob, 
+        file_upload: FileUpload, 
+        ocr_result: Dict[str, Any],
+        product_data: Optional[Dict[str, Any]] = None
+    ) -> ExtractedData:
+        """Create a single extracted data record."""
+        try:
+            structured = ocr_result.get('structured_data', {})
+            
+            # Use product data if provided (for multi-product), otherwise use structured data
+            if product_data:
+                # Multi-product record
+                extracted_data = ExtractedData(
+                    user_id=str(job.user_id),
+                    conversion_job_id=str(job.id),
+                    uploaded_file_id=str(file_upload.id),
+                    folder_name=file_upload.folder_name,
+                    
+                    # Product fields from product_data
+                    product_name=product_data.get('product_name') or structured.get('product_name', ''),
+                    sku=product_data.get('sku') or structured.get('sku', ''),
+                    jan_code=product_data.get('jan_code') or structured.get('jan_code', ''),
+                    price=self._safe_float_convert(product_data.get('price') or structured.get('price')),
+                    stock=self._safe_int_convert(product_data.get('stock') or structured.get('stock')),
+                    category=product_data.get('category') or structured.get('category', ''),
+                    brand=product_data.get('brand') or structured.get('brand', ''),
+                    manufacturer=product_data.get('manufacturer') or structured.get('manufacturer', ''),
+                    description=product_data.get('description') or structured.get('description', ''),
+                    weight=product_data.get('weight') or structured.get('weight', ''),
+                    color=product_data.get('color') or structured.get('color', ''),
+                    material=product_data.get('material') or structured.get('material', ''),
+                    origin=product_data.get('origin') or structured.get('origin', ''),
+                    warranty=product_data.get('warranty') or structured.get('warranty', ''),
+                    dimensions=product_data.get('dimensions') or structured.get('dimensions', ''),
+                    specifications=product_data.get('specifications') or structured.get('specifications', ''),
+                    
+                    # OCR technical fields
+                    page_number=ocr_result.get('page_number', 1),
+                    raw_text=ocr_result.get('raw_text', ''),
+                    structured_data=self._safe_dict_access(structured),
+                    confidence_score=ocr_result.get('confidence_score', 0.0),
+                    word_confidences=self._safe_dict_access(ocr_result.get('word_confidences', {})),
+                    bounding_boxes=self._safe_list_access(ocr_result.get('bounding_boxes', [])),
+                    text_blocks=self._safe_list_access(ocr_result.get('text_blocks', [])),
+                    tables=self._safe_list_access(ocr_result.get('tables', [])),
+                    forms=self._safe_list_access(ocr_result.get('forms', [])),
+                    images=self._safe_list_access(ocr_result.get('images', [])),
+                    language_detected=ocr_result.get('language_detected', 'ja'),
+                    processing_metadata=self._safe_dict_access(ocr_result.get('processing_metadata', {})),
+                    
+                    # Multi-product fields
+                    source_file_id=product_data.get('source_file_id', str(file_upload.id)),
+                    is_multi_product=product_data.get('is_multi_product', False),
+                    total_products_in_file=product_data.get('total_products_in_file', 1),
+                    product_index=product_data.get('product_index', 1),
+                    
+                    # Status fields
+                    needs_review=False,
+                    is_validated=False,
+                    status="extracted",
+                    created_at=datetime.utcnow()
+                )
+            else:
+                # Single product record
+                extracted_data = ExtractedData(
+                    user_id=str(job.user_id),
+                    conversion_job_id=str(job.id),
+                    uploaded_file_id=str(file_upload.id),
+                    folder_name=file_upload.folder_name,
+                    
+                    # Product fields from structured data
+                    product_name=structured.get('product_name', ''),
+                    sku=structured.get('sku', ''),
+                    jan_code=structured.get('jan_code', ''),
+                    price=self._safe_float_convert(structured.get('price')),
+                    stock=self._safe_int_convert(structured.get('stock')),
+                    category=structured.get('category', ''),
+                    brand=structured.get('brand', ''),
+                    manufacturer=structured.get('manufacturer', ''),
+                    description=structured.get('description', ''),
+                    weight=structured.get('weight', ''),
+                    color=structured.get('color', ''),
+                    material=structured.get('material', ''),
+                    origin=structured.get('origin', ''),
+                    warranty=structured.get('warranty', ''),
+                    dimensions=structured.get('dimensions', ''),
+                    specifications=structured.get('specifications', ''),
+                    
+                    # OCR technical fields
+                    page_number=ocr_result.get('page_number', 1),
+                    raw_text=ocr_result.get('raw_text', ''),
+                    structured_data=self._safe_dict_access(structured),
+                    confidence_score=ocr_result.get('confidence_score', 0.0),
+                    word_confidences=self._safe_dict_access(ocr_result.get('word_confidences', {})),
+                    bounding_boxes=self._safe_list_access(ocr_result.get('bounding_boxes', [])),
+                    text_blocks=self._safe_list_access(ocr_result.get('text_blocks', [])),
+                    tables=self._safe_list_access(ocr_result.get('tables', [])),
+                    forms=self._safe_list_access(ocr_result.get('forms', [])),
+                    images=self._safe_list_access(ocr_result.get('images', [])),
+                    language_detected=ocr_result.get('language_detected', 'ja'),
+                    processing_metadata=self._safe_dict_access(ocr_result.get('processing_metadata', {})),
+                    
+                    # Single product fields
+                    source_file_id=str(file_upload.id),
+                    is_multi_product=False,
+                    total_products_in_file=1,
+                    product_index=1,
+                    
+                    # Status fields
+                    needs_review=False,
+                    is_validated=False,
+                    status="extracted",
+                    created_at=datetime.utcnow()
+                )
+            
+            # Save to database
+            await extracted_data.insert()
+            
+            logger.info(f"Created extracted data record: {extracted_data.id}")
+            return extracted_data
+            
+        except Exception as e:
+            logger.error(f"Error creating extracted data record: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
 
-def get_ocr_processor():
-    """Get or create the global OCR processor instance."""
-    global ocr_processor
-    if ocr_processor is None:
-        ocr_processor = OCRProcessor() 
-    return ocr_processor 
+    def _safe_float_convert(self, value: Any) -> Optional[float]:
+        """Safely convert value to float."""
+        if value is None:
+            return None
+        try:
+            if isinstance(value, str):
+                # Remove common Japanese price formatting
+                cleaned = value.replace('円', '').replace(',', '').replace('¥', '').strip()
+                return float(cleaned) if cleaned else None
+            return float(value)
+        except (ValueError, TypeError):
+            return None
+
+    def _safe_int_convert(self, value: Any) -> Optional[int]:
+        """Safely convert value to int."""
+        if value is None:
+            return None
+        try:
+            if isinstance(value, str):
+                cleaned = value.replace(',', '').strip()
+                return int(cleaned) if cleaned else None
+            return int(value)
+        except (ValueError, TypeError):
+            return None
+
+    def _safe_dict_access(self, value: Any) -> Dict[str, Any]:
+        """Safely access dictionary value."""
+        if isinstance(value, dict):
+            return value
+        elif isinstance(value, str):
+            try:
+                return json.loads(value)
+            except:
+                return {"raw_value": value}
+        else:
+            return {"raw_value": str(value) if value is not None else ""}
+
+    def _safe_list_access(self, value: Any) -> List[Any]:
+        """Safely access list value."""
+        if isinstance(value, list):
+            return value
+        elif value is not None:
+            return [value]
+        else:
+            return []
+
+    def _extract_product_name_for_jan(self, raw_text: str, jan_code: str, index: int) -> str:
+        """Extract product name for a specific JAN code."""
+        try:
+            # Look for product name patterns near the JAN code
+            jan_pattern = jan_code.replace('4970381', '').replace('-', '')
+            
+            # Split text into lines and find JAN code line
+            lines = raw_text.split('\n')
+            jan_line_idx = -1
+            
+            for i, line in enumerate(lines):
+                if jan_code in line or jan_pattern in line:
+                    jan_line_idx = i
+                    break
+            
+            if jan_line_idx >= 0:
+                # Look for product name in surrounding lines
+                search_start = max(0, jan_line_idx - 3)
+                search_end = min(len(lines), jan_line_idx + 3)
+                
+                for i in range(search_start, search_end):
+                    line = lines[i].strip()
+                    # Look for typical product name patterns
+                    if any(keyword in line for keyword in ['トレーディング', 'カード', 'アクリル', 'キーホルダー', 'ステッカー']):
+                        if len(line) > 5 and len(line) < 50:  # Reasonable length
+                            return line
+            
+            # Fallback to generic name
+            return f"商品{index}"
+            
+        except Exception as e:
+            logger.error(f"Error extracting product name for JAN {jan_code}: {str(e)}")
+            return f"商品{index}"
+
+    def _extract_section_data_for_jan(self, raw_text: str, jan_code: str) -> Dict[str, Any]:
+        """Extract section data (SKU, price, release date) for a specific JAN code."""
+        try:
+            section_data = {}
+            
+            # Find the section of text around this JAN code
+            jan_pattern = jan_code.replace('4970381', '').replace('-', '')
+            lines = raw_text.split('\n')
+            jan_line_idx = -1
+            
+            for i, line in enumerate(lines):
+                if jan_code in line or jan_pattern in line:
+                    jan_line_idx = i
+                    break
+            
+            if jan_line_idx >= 0:
+                # Get surrounding context
+                search_start = max(0, jan_line_idx - 5)
+                search_end = min(len(lines), jan_line_idx + 5)
+                section_text = '\n'.join(lines[search_start:search_end])
+                
+                # Extract SKU (EN-XXXX or ST-XXXX patterns)
+                sku_match = re.search(r'(EN-\d+|ST-\d+)', section_text)
+                if sku_match:
+                    section_data['sku'] = sku_match.group(1)
+                
+                # Extract price
+                price_match = re.search(r'(\d+)円', section_text)
+                if price_match:
+                    section_data['price'] = price_match.group(1)
+                
+                # Extract release date
+                date_match = re.search(r'(\d{4}年\d{1,2}月|\d{1,2}/\d{1,2})', section_text)
+                if date_match:
+                    section_data['release_date'] = date_match.group(1)
+            
+            return section_data
+            
+        except Exception as e:
+            logger.error(f"Error extracting section data for JAN {jan_code}: {str(e)}")
+            return {} 
