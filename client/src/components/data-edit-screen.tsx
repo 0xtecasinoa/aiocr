@@ -366,7 +366,7 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                                 </div>
                               </td>
                               <td className="py-2 px-2 text-sm text-gray-700">
-                                {(product as any).release_date || '12/1/2024'}
+                                {(product as any).release_date || ''}
                               </td>
                               <td className="py-2 px-2 text-sm font-mono text-gray-700">
                                 <div className={`px-2 py-1 rounded text-xs ${(product as any).jan_code ? 'bg-yellow-100' : 'bg-gray-100'}`}>
@@ -377,26 +377,26 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                                 {product.price ? `${Number(product.price).toLocaleString()}円(税抜価格${Math.floor(Number(product.price) * 0.91)}円)` : '未入力'}
                               </td>
                               <td className="py-2 px-2 text-sm text-gray-700">
-                                {product.stock || '72入\n(12パック×6BOX)'}
+                                {product.stock || ''}
                               </td>
                               <td className="py-2 px-2 text-sm text-gray-700">
-                                {(product as any).dimensions || '(16.7×約)63×89mm'}
+                                {(product as any).dimensions || ''}
                               </td>
                               <td className="py-2 px-2 text-sm text-gray-700">
                                 <div className={`px-2 py-1 rounded text-xs ${(product as any).package_size ? 'bg-yellow-100' : 'bg-gray-100'}`}>
-                                  {(product as any).package_size || '約141×73×約159×385×ない'}
+                                  {(product as any).package_size || ''}
                                 </div>
                               </td>
                               <td className="py-2 px-2 text-sm text-gray-700">
-                                {(product as any).inner_box_size || '約141×73×約159×385×ない'}
+                                {(product as any).inner_box_size || ''}
                               </td>
                               <td className="py-2 px-2 text-sm text-gray-700">
                                 <div className={`px-2 py-1 rounded text-xs ${(product as any).carton_size ? 'bg-yellow-100' : 'bg-gray-100'}`}>
-                                  {(product as any).carton_size || '約141×73×約159×385×ない'}
+                                  {(product as any).carton_size || ''}
                                 </div>
                               </td>
                               <td className="py-2 px-2 text-sm text-gray-700">
-                                {(product as any).package_type || 'ピローパック(ブラインド)'}
+                                {(product as any).package_type || ''}
                               </td>
                               <td className="py-2 px-2 text-sm text-gray-700">
                                 <div className="max-w-[100px] truncate">

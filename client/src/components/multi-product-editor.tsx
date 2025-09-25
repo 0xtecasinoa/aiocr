@@ -125,7 +125,7 @@ export default function MultiProductEditor({
                           </TableCell>
                           <TableCell>
                             <div className="min-w-[90px] text-sm">
-                              {(product as any).structured_data?.release_date || (product as any).releaseDate || '12/1/2024'}
+                              {(product as any).structured_data?.release_date || (product as any).releaseDate || ''}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -140,32 +140,32 @@ export default function MultiProductEditor({
                           </TableCell>
                           <TableCell>
                             <div className="min-w-[70px] text-sm">
-                              {product.stock || '72入\n(12パック×6BOX)'}
+                              {product.stock || ''}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="min-w-[110px] text-sm">
-                              {product.dimensions || (product as any).productSize || '(16.7×約)63×89mm'}
+                              {product.dimensions || (product as any).productSize || ''}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="min-w-[130px] text-sm">
-                              {(product as any).packageSize || (product as any).package_size || '約141×73×約159×385×ない'}
+                              {(product as any).packageSize || (product as any).package_size || ''}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="min-w-[110px] text-sm">
-                              {(product as any).contentSize || (product as any).content_size || '未入力 (NG)'}
+                              {(product as any).contentSize || (product as any).content_size || ''}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="min-w-[130px] text-sm">
-                              {(product as any).cartonSize || (product as any).carton_size || '未入力 (NG)'}
+                              {(product as any).cartonSize || (product as any).carton_size || ''}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="min-w-[110px] text-sm">
-                              {(product as any).packageType || (product as any).package_type || 'ピローパック(プラインド)'}
+                              {(product as any).packageType || (product as any).package_type || ''}
                             </div>
                           </TableCell>
                           <TableCell>

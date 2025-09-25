@@ -59,8 +59,10 @@ class OpenAIOCRService:
             return base64.b64encode(image_file.read()).decode('utf-8')
     
     def _optimize_image_for_ocr(self, image_path: str) -> str:
-        """Optimize image for better OCR results."""
+        """Optimize image for better OCR results, especially for barcode images."""
         try:
+            from PIL import ImageEnhance, ImageFilter
+            
             # Open and process image
             with Image.open(image_path) as img:
                 # Convert to RGB if needed
@@ -72,10 +74,23 @@ class OpenAIOCRService:
                 if max(img.size) > max_size:
                     img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
                 
+                # Enhance image for better OCR, especially for barcodes
+                # Increase contrast to make text and barcodes more readable
+                enhancer = ImageEnhance.Contrast(img)
+                img = enhancer.enhance(1.3)  # Increase contrast by 30%
+                
+                # Increase sharpness for better text recognition
+                enhancer = ImageEnhance.Sharpness(img)
+                img = enhancer.enhance(1.2)  # Increase sharpness by 20%
+                
+                # Apply slight unsharp mask for barcode clarity
+                img = img.filter(ImageFilter.UnsharpMask(radius=1, percent=120, threshold=2))
+                
                 # Save optimized image
                 optimized_path = str(Path(image_path).with_suffix('.optimized.jpg'))
-                img.save(optimized_path, 'JPEG', quality=95, optimize=True)
+                img.save(optimized_path, 'JPEG', quality=98, optimize=True)  # Higher quality for barcodes
                 
+                print(f"🖼️ Image optimized for barcode OCR: {optimized_path}")
                 return optimized_path
                 
         except Exception as e:
@@ -131,21 +146,29 @@ class OpenAIOCRService:
             - Individual JAN codes (13-digit barcodes)
             - Distinct prices and specifications
             
+            BARCODE AND JAN CODE EXTRACTION PRIORITY:
+            1. **BARCODES**: Look carefully for BARCODE IMAGES - black and white striped patterns
+            2. **JAN NUMBERS UNDER BARCODES**: Extract the numbers displayed below barcode stripes
+            3. **JAN FORMAT**: 13-digit numbers like 4970381806026, often starting with 4970381
+            4. **BARCODE LABELS**: Look for text like "単品JANコード" or "JANコード" near barcodes
+            5. **READ BARCODE NUMBERS**: Even if text is small, focus on extracting the complete 13-digit number
+            
             INSTRUCTIONS:
             1. Extract ALL visible text with 100% accuracy
-            2. IDENTIFY each separate product section/area in the image
-            3. For each product, extract ALL related information
-            4. AVOID repeating shared information (like company name, general descriptions)
-            5. Focus on product-specific information: names, codes, prices, sizes, dates
-            6. Preserve exact spacing and formatting for product data
-            7. For Japanese text, preserve kanji, hiragana, and katakana exactly
-            8. Extract numbers, prices, codes with exact formatting
-            9. If you see the same product name with different codes, treat as separate products
+            2. **PRIORITIZE BARCODE READING**: Look for striped barcode patterns and read the numbers underneath
+            3. IDENTIFY each separate product section/area in the image
+            4. For each product, extract ALL related information
+            5. AVOID repeating shared information (like company name, general descriptions)
+            6. Focus on product-specific information: names, codes, prices, sizes, dates
+            7. Preserve exact spacing and formatting for product data
+            8. For Japanese text, preserve kanji, hiragana, and katakana exactly
+            9. Extract numbers, prices, codes with exact formatting
+            10. If you see the same product name with different codes, treat as separate products
             
             SPECIAL FOCUS - Look for these product details FOR EACH PRODUCT:
+            - **JANコード (JAN codes)** - 13-digit numbers starting with 4 (MOST IMPORTANT - often shown as barcodes)
             - 商品名 (Product names) - usually contains character names like ピカチュウ, イーブイ, etc.
             - 商品コード (Product codes) - ST-03CB, ST-04CB, ST-05CB, EN-XXXX patterns
-            - JANコード (JAN codes) - 13-digit numbers starting with 4 (each product has unique JAN)
             - 希望小売価格 (Prices) - amounts with 円 or ¥
             - 発売予定日 (Release dates) - dates like 2024年12月
             - サイズ情報 (Size info) - dimensions with mm, cm
@@ -164,6 +187,7 @@ class OpenAIOCRService:
             - Do NOT repeat the same text multiple times
             - Extract each piece of information only once
             - Focus on unique product data, not repeated headers/footers
+            - **PRIORITIZE BARCODE NUMBERS** - even if they appear small or under striped patterns
             """
             
             print(f"🤖 OPENAI OCR: Processing image with {self.model}")
@@ -1591,43 +1615,66 @@ CRITICAL RULES:
         return None
     
     def _extract_jan_code(self, raw_text: str) -> str:
-        """JANコードを抽出（8桁または13桁）"""
-        # 13桁のJANコード（4で始まる一般的なパターン）
+        """JANコードを抽出（8桁または13桁）- バーコード画像対応強化版"""
+        # 13桁のJANコード（バーコードからの抽出を最優先）
         jan_13_patterns = [
-            r'\b(4\d{12})\b',  # 4で始まる13桁
-            r'JAN[：:\s]*(4\d{12})',  # JANコード: 4XXXXXXXXXXXX
-            r'コード[：:\s]*(4\d{12})',  # コード: 4XXXXXXXXXXXX
+            r'\b(4\d{12})\b',  # 4で始まる13桁（最も一般的）
             r'(4970381\d{6})',  # エンスカイの特定パターン
-            r'4970381-(\d{6})',  # ハイフン付きエンスカイパターン
+            r'4970381[-\s]?(\d{6})',  # ハイフンまたはスペース付きエンスカイパターン
+            r'JAN[コード：:\s]*(4\d{12})',  # JANコード: 4XXXXXXXXXXXX
+            r'単品\s*JAN[コード：:\s]*(4\d{12})',  # 単品JANコード: 4XXXXXXXXXXXX
+            r'コード[：:\s]*(4\d{12})',  # コード: 4XXXXXXXXXXXX
+            r'バーコード[：:\s]*(4\d{12})',  # バーコード: 4XXXXXXXXXXXX
+            r'(\d{13})',  # 任意の13桁（バーコード下の数字）
         ]
         
-        for pattern in jan_13_patterns:
+        print(f"🔍 JANコード抽出開始: {raw_text[:100]}...")
+        
+        for i, pattern in enumerate(jan_13_patterns):
+            matches = re.findall(pattern, raw_text)
+            for match in matches:
+                if isinstance(match, tuple):
+                    # ハイフン付きの場合
+                    if len(match) == 1:
+                        jan_code = f"4970381{match[0]}"
+                    else:
+                        jan_code = match[0] if match[0] else match[1]
+                else:
+                    jan_code = match
+                
+                # JAN code validation
+                if len(jan_code) == 13 and jan_code.isdigit():
+                    # より厳密なJANコードチェック
+                    if jan_code.startswith('4'):
+                        print(f"✅ JAN CODE FOUND (pattern {i+1}): {jan_code}")
+                        return jan_code
+                    elif jan_code.startswith('49') or jan_code.startswith('45'):
+                        print(f"✅ JAN CODE FOUND (Japan specific): {jan_code}")
+                        return jan_code
+        
+        # 8桁のJANコード（短縮形）- バーコードからも抽出
+        jan_8_patterns = [
+            r'\b(\d{8})\b',
+            r'短縮[コード：:\s]*(\d{8})',
+            r'8桁[コード：:\s]*(\d{8})',
+        ]
+        
+        for pattern in jan_8_patterns:
             match = re.search(pattern, raw_text)
             if match:
-                if pattern == r'4970381-(\d{6})':
-                    # ハイフン付きの場合、ハイフンを除去
-                    jan_code = f"4970381{match.group(1)}"
-                else:
-                    jan_code = match.group(1)
-                print(f"✅ JAN CODE FOUND: {jan_code}")
-                return jan_code
+                jan_code = match.group(1)
+                if jan_code.isdigit() and len(jan_code) == 8:
+                    print(f"✅ JAN CODE FOUND (8-digit): {jan_code}")
+                    return jan_code
         
-        # より一般的な13桁パターン
-        jan_13 = re.search(r'\b(\d{13})\b', raw_text)
-        if jan_13:
-            jan_code = jan_13.group(1)
-            # 妥当性チェック（4または49で始まる）
-            if jan_code.startswith('4'):
-                print(f"✅ JAN CODE FOUND (general): {jan_code}")
-                return jan_code
+        # Additional fallback for any 13-digit number that looks like a JAN code
+        all_numbers = re.findall(r'\b(\d{13})\b', raw_text)
+        for number in all_numbers:
+            if number.startswith(('4', '49', '45')):
+                print(f"✅ JAN CODE FOUND (fallback): {number}")
+                return number
         
-        # 8桁のJANコード（短縮形）
-        jan_8 = re.search(r'\b(\d{8})\b', raw_text)
-        if jan_8:
-            jan_code = jan_8.group(1)
-            print(f"✅ JAN CODE FOUND (8-digit): {jan_code}")
-            return jan_code
-        
+        print("❌ No JAN code found in text")
         return None
     
     def _extract_price(self, raw_text: str) -> str:
