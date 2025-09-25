@@ -343,7 +343,7 @@ class OpenAIOCRService:
                 logger.error(f"OpenAI API quota exceeded: {str(e)}")
                 raise ValueError(f"OpenAI API quota exceeded. Please check your OpenAI account billing. Error: {str(e)}")
             else:
-                logger.error(f"OpenAI OCR processing failed: {str(e)}")
+            logger.error(f"OpenAI OCR processing failed: {str(e)}")
             raise ValueError(f"OpenAI OCR processing failed: {str(e)}")
     
     async def extract_text_from_excel(
@@ -378,7 +378,7 @@ class OpenAIOCRService:
                 print(f"🔍 PROCESSING SHEET: {sheet_name} ({len(sheet_df)} rows)")
                 
                 # Extract only rows containing product codes (EN-XXXX)
-                for idx, row in sheet_df.iterrows():
+                    for idx, row in sheet_df.iterrows():
                     row_str = " | ".join([str(cell) if pd.notna(cell) else "" for cell in row.values])
                     
                     # Only include rows with EN-codes or essential headers
@@ -602,7 +602,7 @@ CRITICAL RULES:
                     try:
                         import json
                         if response_text.strip().startswith('{'):
-                            page_result = json.loads(response_text)
+                        page_result = json.loads(response_text)
                         else:
                             # Try to extract JSON from markdown
                             json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_text, re.DOTALL)

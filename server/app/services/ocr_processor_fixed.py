@@ -186,7 +186,7 @@ class OCRProcessor:
                 "total_products_extracted": total_products,
                 "extracted_data_ids": [str(ed.id) for ed in all_extracted_data]
             }
-            
+                
         except Exception as e:
             logger.error(f"Error processing job {job_id}: {str(e)}")
             logger.error(traceback.format_exc())
@@ -458,7 +458,7 @@ class OCRProcessor:
                     status="extracted",
                     created_at=datetime.utcnow()
                 )
-            else:
+                else:
                 # Single product record
                 extracted_data = ExtractedData(
                     user_id=str(job.user_id),

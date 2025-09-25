@@ -501,75 +501,49 @@ export default function MyPage() {
                   </div>
                 )}
 
-                {/* Billing History Items */}
+                {/* Billing History Table */}
                 {!isLoadingBillingHistory && !billingHistoryError && (
                   <div className="space-y-4">
-                    {billingHistory.map((billing: BillingHistory) => (
-                      <div key={billing.id} className="group p-4 border border-slate-200 rounded-xl hover:border-red-300 hover:bg-red-50/50 transition-all duration-300">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-red-400 to-pink-500 rounded-xl flex items-center justify-center">
-                              <FileText className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="space-y-2">
-                              {/* 1. 年（例：2025年） */}
-                              <div className="flex items-center space-x-3">
-                                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                                  <span className="text-white text-xs font-bold">1</span>
-                                </div>
-                                <span className="font-semibold text-slate-800 text-lg">
+                    {billingHistory.length > 0 ? (
+                      <div className="border border-slate-200 rounded-lg overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700 border-r border-slate-200">
+                                利用年
+                              </th>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700 border-r border-slate-200">
+                                利用月
+                              </th>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700 border-r border-slate-200">
+                                利用件数
+                              </th>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                                請求額
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200">
+                            {billingHistory.map((billing: BillingHistory) => (
+                              <tr key={billing.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-6 py-4 text-sm text-slate-900 border-r border-slate-200">
                                   {billing.year}年
-                                </span>
-                              </div>
-                              
-                              {/* 2. 月（例：8月） */}
-                              <div className="flex items-center space-x-3">
-                                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                                  <span className="text-white text-xs font-bold">2</span>
-                                </div>
-                                <span className="font-semibold text-slate-800 text-lg">
+                                </td>
+                                <td className="px-6 py-4 text-sm text-slate-900 border-r border-slate-200">
                                   {billing.month}月
-                                </span>
-                              </div>
-                              
-                              {/* 3. 合計件数（例：500） */}
-                              <div className="flex items-center space-x-3">
-                                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                                  <span className="text-white text-xs font-bold">3</span>
-                                </div>
-                                <span className="font-semibold text-slate-800 text-lg">
-                                  合計件数: {billing.totalItems}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* 4. 請求書ダウンロード */}
-                          <div className="flex items-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">4</span>
-                            </div>
-                            {billing.invoiceUrl ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownloadInvoice(billing.id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300"
-                              >
-                                <Download className="w-4 h-4 mr-2" />
-                                請求書ダウンロード
-                              </Button>
-                            ) : (
-                              <Badge variant="secondary" className="text-slate-500">
-                                準備中
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-slate-900 border-r border-slate-200">
+                                  {billing.totalItems}件
+                                </td>
+                                <td className="px-6 py-4 text-sm text-slate-900">
+                                  {billing.totalAmount ? `¥${billing.totalAmount.toLocaleString()}` : '¥0'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    ))}
-                    
-                    {billingHistory.length === 0 && (
+                    ) : (
                       <div className="text-center py-12">
                         <div className="w-16 h-16 bg-slate-100 rounded-full mx-auto mb-4 flex items-center justify-center">
                           <Receipt className="w-8 h-8 text-slate-400" />
