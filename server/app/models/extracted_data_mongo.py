@@ -34,6 +34,38 @@ class ExtractedData(Document):
     dimensions: Optional[Union[str, Dict[str, Any]]] = None
     specifications: Optional[Union[str, Dict[str, Any]]] = None
     
+    # Additional fields for 38-column format support
+    release_date: Optional[str] = None  # 発売日
+    package_size: Optional[str] = None  # 内箱サイズ
+    carton_size: Optional[str] = None   # カートンサイズ
+    lot_number: Optional[str] = None    # ロット番号
+    classification: Optional[str] = None # 区分
+    sub_category: Optional[str] = None  # 中分類
+    in_store: Optional[str] = None      # インストア
+    campaign_name: Optional[str] = None # キャンペーン名称
+    supplier: Optional[str] = None      # 仕入先
+    ip_name: Optional[str] = None       # キャンペーン名(IP名)
+    reference_price: Optional[float] = None # 参考販売価格
+    tax_included_price: Optional[float] = None # 容量価格(税)
+    wholesale_quantity: Optional[int] = None # 卸可能数
+    sold_out_quantity: Optional[int] = None # 完売数
+    sold_out_amount: Optional[float] = None # 完売金額
+    case_quantity: Optional[int] = None # ケース入数
+    product_size: Optional[str] = None  # 単品サイズ
+    inner_box_gtin: Optional[str] = None # 内箱GTIN
+    outer_box_gtin: Optional[str] = None # 外箱GTIN
+    packaging_material: Optional[str] = None # 保材フィルム
+    target_age: Optional[str] = None    # 対象年齢
+    reservation_start_date: Optional[str] = None # 予約解禁日
+    reservation_available_date: Optional[str] = None # 予約開始の可能日
+    reservation_shipping_date: Optional[str] = None # 予約商品発送予定日
+    image1_url: Optional[str] = None    # 画像1
+    image2_url: Optional[str] = None    # 画像2
+    image3_url: Optional[str] = None    # 画像3
+    image4_url: Optional[str] = None    # 画像4
+    image5_url: Optional[str] = None    # 画像5
+    image6_url: Optional[str] = None    # 画像6
+    
     # OCR technical fields
     page_number: Optional[int] = None
     raw_text: Optional[str] = None

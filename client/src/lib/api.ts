@@ -509,8 +509,27 @@ class ApiClient {
     return this.makeRequest('DELETE', `/api/v1/data/${dataId}`, null, true);
   }
 
-  async exportDataToCsv(format: string = 'raw'): Promise<Blob> {
-    const url = `${this.baseUrl}/api/v1/data/export/csv?format=${format}`;
+  async exportDataToCsv(
+    format: string = 'raw',
+    selectedIds?: string[],
+    excludeOutOfStock: boolean = false,
+    includeImages: boolean = false
+  ): Promise<Blob> {
+    const params = new URLSearchParams({ format });
+    
+    if (selectedIds && selectedIds.length > 0) {
+      params.append('selected_ids', selectedIds.join(','));
+    }
+    
+    if (excludeOutOfStock) {
+      params.append('exclude_out_of_stock', 'true');
+    }
+    
+    if (includeImages) {
+      params.append('include_images', 'true');
+    }
+    
+    const url = `${this.baseUrl}/api/v1/data/export/csv?${params.toString()}`;
     const headers: Record<string, string> = {};
     
     if (this.accessToken) {
@@ -566,6 +585,13 @@ class ApiClient {
     });
 
     return blob;
+  }
+
+  async cleanupProductDescriptions(): Promise<any> {
+    return await this.makeRequest<any>(
+      "POST",
+      "/api/v1/data/cleanup-descriptions"
+    );
   }
 }
 

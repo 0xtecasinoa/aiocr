@@ -430,33 +430,41 @@ class OCRProcessor:
                     origin=product_data.get('origin') or structured.get('origin', ''),
                     warranty=product_data.get('warranty') or structured.get('warranty', ''),
                     dimensions=product_data.get('dimensions') or structured.get('dimensions', ''),
-                    specifications=product_data.get('specifications') or structured.get('specifications', ''),
+                    
+                    # New fields for enhanced extraction
+                    release_date=product_data.get('release_date') or structured.get('release_date', ''),
+                    package_size=product_data.get('package_size') or structured.get('package_size', ''),
+                    carton_size=product_data.get('carton_size') or structured.get('carton_size', ''),
+                    product_size=product_data.get('product_size') or structured.get('product_size', ''),
+                    target_age=product_data.get('target_age') or structured.get('target_age', ''),
+                    packaging_material=product_data.get('packaging_material') or structured.get('packaging_material', ''),
+                    inner_box_gtin=product_data.get('inner_box_gtin') or structured.get('inner_box_gtin', ''),
+                    outer_box_gtin=product_data.get('outer_box_gtin') or structured.get('outer_box_gtin', ''),
+                    case_quantity=self._safe_int_convert(product_data.get('case_quantity') or structured.get('case_quantity')),
                     
                     # OCR technical fields
-                    page_number=ocr_result.get('page_number', 1),
                     raw_text=ocr_result.get('raw_text', ''),
-                    structured_data=self._safe_dict_access(structured),
+                    structured_data=structured,
                     confidence_score=ocr_result.get('confidence_score', 0.0),
-                    word_confidences=self._safe_dict_access(ocr_result.get('word_confidences', {})),
-                    bounding_boxes=self._safe_list_access(ocr_result.get('bounding_boxes', [])),
-                    text_blocks=self._safe_list_access(ocr_result.get('text_blocks', [])),
-                    tables=self._safe_list_access(ocr_result.get('tables', [])),
-                    forms=self._safe_list_access(ocr_result.get('forms', [])),
-                    images=self._safe_list_access(ocr_result.get('images', [])),
+                    word_confidences=ocr_result.get('word_confidences', {}),
+                    bounding_boxes=ocr_result.get('bounding_boxes', []),
+                    text_blocks=ocr_result.get('text_blocks', []),
+                    tables=ocr_result.get('tables', []),
+                    forms=ocr_result.get('forms', []),
+                    images=ocr_result.get('images', []),
                     language_detected=ocr_result.get('language_detected', 'ja'),
-                    processing_metadata=self._safe_dict_access(ocr_result.get('processing_metadata', {})),
+                    processing_metadata=ocr_result.get('processing_metadata', {}),
                     
                     # Multi-product fields
-                    source_file_id=product_data.get('source_file_id', str(file_upload.id)),
-                    is_multi_product=product_data.get('is_multi_product', False),
-                    total_products_in_file=product_data.get('total_products_in_file', 1),
+                    is_multi_product=True,
+                    total_products_in_file=product_data.get('total_products', 1),
                     product_index=product_data.get('product_index', 1),
+                    source_file_id=str(file_upload.id),
                     
                     # Status fields
-                    needs_review=False,
-                    is_validated=False,
-                    status="extracted",
-                                        created_at=datetime.utcnow()
+                    status='completed',
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
                 )
             else:
                 # Single product record
@@ -482,45 +490,52 @@ class OCRProcessor:
                     origin=structured.get('origin', ''),
                     warranty=structured.get('warranty', ''),
                     dimensions=structured.get('dimensions', ''),
-                    specifications=structured.get('specifications', ''),
+                    
+                    # New fields for enhanced extraction
+                    release_date=structured.get('release_date', ''),
+                    package_size=structured.get('package_size', ''),
+                    carton_size=structured.get('carton_size', ''),
+                    product_size=structured.get('product_size', ''),
+                    target_age=structured.get('target_age', ''),
+                    packaging_material=structured.get('packaging_material', ''),
+                    inner_box_gtin=structured.get('inner_box_gtin', ''),
+                    outer_box_gtin=structured.get('outer_box_gtin', ''),
+                    case_quantity=self._safe_int_convert(structured.get('case_quantity')),
                     
                     # OCR technical fields
-                    page_number=ocr_result.get('page_number', 1),
                     raw_text=ocr_result.get('raw_text', ''),
-                    structured_data=self._safe_dict_access(structured),
+                    structured_data=structured,
                     confidence_score=ocr_result.get('confidence_score', 0.0),
-                    word_confidences=self._safe_dict_access(ocr_result.get('word_confidences', {})),
-                    bounding_boxes=self._safe_list_access(ocr_result.get('bounding_boxes', [])),
-                    text_blocks=self._safe_list_access(ocr_result.get('text_blocks', [])),
-                    tables=self._safe_list_access(ocr_result.get('tables', [])),
-                    forms=self._safe_list_access(ocr_result.get('forms', [])),
-                    images=self._safe_list_access(ocr_result.get('images', [])),
+                    word_confidences=ocr_result.get('word_confidences', {}),
+                    bounding_boxes=ocr_result.get('bounding_boxes', []),
+                    text_blocks=ocr_result.get('text_blocks', []),
+                    tables=ocr_result.get('tables', []),
+                    forms=ocr_result.get('forms', []),
+                    images=ocr_result.get('images', []),
                     language_detected=ocr_result.get('language_detected', 'ja'),
-                    processing_metadata=self._safe_dict_access(ocr_result.get('processing_metadata', {})),
+                    processing_metadata=ocr_result.get('processing_metadata', {}),
                     
-                    # Single product fields
-                    source_file_id=str(file_upload.id),
+                    # Multi-product fields
                     is_multi_product=False,
                     total_products_in_file=1,
                     product_index=1,
+                    source_file_id=str(file_upload.id),
                     
                     # Status fields
-                    needs_review=False,
-                    is_validated=False,
-                    status="extracted",
-                    created_at=datetime.utcnow()
+                    status='completed',
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
                 )
             
             # Save to database
             await extracted_data.insert()
             
-            logger.info(f"Created extracted data record: {extracted_data.id}")
+            print(f"✅ Created extracted data record: {extracted_data.id}")
             return extracted_data
             
         except Exception as e:
-            logger.error(f"Error creating extracted data record: {str(e)}")
-            logger.error(traceback.format_exc())
-            raise
+            print(f"❌ Error creating extracted data record: {str(e)}")
+            raise e
 
     def _safe_float_convert(self, value: Any) -> Optional[float]:
         """Safely convert value to float."""

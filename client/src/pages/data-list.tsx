@@ -14,7 +14,21 @@ import DataEditScreen from "@/components/data-edit-screen";
 import { authManager } from "@/lib/auth";
 import { apiClient } from "@/lib/api";
 import { ExtractedData } from "../types";
-import { SearchIcon, FilterIcon, FolderIcon, EditIcon, EyeIcon, DownloadIcon, GridIcon, ListIcon, SettingsIcon } from "lucide-react";
+import { 
+  DownloadIcon, 
+  EyeIcon, 
+  EditIcon, 
+  SettingsIcon,
+  RefreshCwIcon,
+  FileTextIcon,
+  ChevronDownIcon,
+  MoreHorizontalIcon,
+  SearchIcon,
+  FilterIcon,
+  FolderIcon,
+  ListIcon,
+  GridIcon
+} from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -178,6 +192,28 @@ export default function DataListPage() {
       toast({
         title: "エクスポートエラー",
         description: "CSVファイルのダウンロードに失敗しました。",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 商品説明クリーンアップハンドラー
+  const handleCleanupDescriptions = async () => {
+    try {
+      const result = await apiClient.cleanupProductDescriptions();
+      
+      toast({
+        title: "クリーンアップ完了",
+        description: `${result.updated_count}件の商品説明を改善しました。`,
+      });
+      
+      // データを再取得
+      refetch();
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      toast({
+        title: "クリーンアップエラー",
+        description: "商品説明の改善に失敗しました。",
         variant: "destructive",
       });
     }
@@ -425,6 +461,16 @@ export default function DataListPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              
+              {/* 商品説明クリーンアップ */}
+              <Button 
+                variant="outline" 
+                onClick={handleCleanupDescriptions}
+                className="flex-shrink-0"
+              >
+                <RefreshCwIcon className="w-4 h-4 mr-2" />
+                説明改善
+              </Button>
               
               {/* Column Settings */}
               <Popover open={isColumnSelectorOpen} onOpenChange={setIsColumnSelectorOpen}>

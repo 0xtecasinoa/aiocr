@@ -314,9 +314,6 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                   />
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-sm text-gray-600">実際資_ポケットモンスター_ポケモン...</span>
-                    <Button variant="outline" size="sm">
-                      ダウンロード
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -531,12 +528,12 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
 
                         {/* SKU */}
                         <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">SKU</label>
+                          <label className="block text-sm font-medium text-gray-700">品番</label>
                           <Input
                             value={formData.sku || ''}
                             onChange={(e) => handleInputChange('sku', e.target.value)}
                             className="w-full"
-                            placeholder="ST-03CB, ST-04CB, ST-05CB"
+                            placeholder=""
                           />
                         </div>
 
@@ -550,7 +547,7 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                               value={formData.jan_code || ''}
                               onChange={(e) => handleInputChange('jan_code', e.target.value)}
                               className="w-full bg-white"
-                              placeholder="4970381 804220, 4970381 804237, 4970381 804244"
+                              placeholder=""
                             />
                           </div>
                         </div>
@@ -563,7 +560,7 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                             value={formData.price || ''}
                             onChange={(e) => handleInputChange('price', e.target.value)}
                             className="w-full"
-                            placeholder="2640"
+                            placeholder=""
                           />
                         </div>
 
@@ -575,7 +572,7 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                             value={formData.stock || ''}
                             onChange={(e) => handleInputChange('stock', e.target.value)}
                             className="w-full"
-                            placeholder="11"
+                            placeholder=""
                           />
                         </div>
 
@@ -586,7 +583,7 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                             value={formData.category || ''}
                             onChange={(e) => handleInputChange('category', e.target.value)}
                             className="w-full"
-                            placeholder="貯金箱"
+                            placeholder=""
                           />
                         </div>
 
@@ -597,7 +594,7 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                             value={formData.brand || ''}
                             onChange={(e) => handleInputChange('brand', e.target.value)}
                             className="w-full"
-                            placeholder="エンスカイ"
+                            placeholder=""
                           />
                         </div>
 

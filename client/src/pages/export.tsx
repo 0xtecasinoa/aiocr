@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { authManager } from "@/lib/auth";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +32,7 @@ export default function ExportPage() {
   const [includeImages, setIncludeImages] = useState(false);
   const [filename, setFilename] = useState(`export_products_${new Date().toISOString().split('T')[0]}`);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
   const { toast } = useToast();
   const currentUser = authManager.getState().user;
@@ -73,6 +76,7 @@ export default function ExportPage() {
       logo: undefined,
       icon: FileTextIcon,
       color: "text-slate-500",
+      description: "Raw data format"
     },
   ];
 
@@ -98,7 +102,19 @@ export default function ExportPage() {
       };
       
       const exportFormat = formatMap[selectedFormat] || 'raw';
-      const blob = await apiClient.exportDataToCsv(exportFormat);
+      
+      // Determine which products to export
+      let idsToExport: string[] | undefined = undefined;
+      if (selectedOnly && selectedProductIds.length > 0) {
+        idsToExport = selectedProductIds;
+      }
+      
+      const blob = await apiClient.exportDataToCsv(
+        exportFormat,
+        idsToExport,
+        excludeOutOfStock,
+        includeImages
+      );
       
       // Create download link
       const url = window.URL.createObjectURL(blob);
@@ -142,12 +158,30 @@ export default function ExportPage() {
 
   const filteredDataCount = filteredData.length;
 
+  // Handle product selection
+  const handleProductSelect = (productId: string, selected: boolean) => {
+    if (selected) {
+      setSelectedProductIds(prev => [...prev, productId]);
+    } else {
+      setSelectedProductIds(prev => prev.filter(id => id !== productId));
+    }
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    if (selected) {
+      setSelectedProductIds(filteredData.map((item: ExtractedData) => String(item.id)));
+    } else {
+      setSelectedProductIds([]);
+    }
+  };
+
+  const isAllSelected = selectedProductIds.length === filteredData.length && filteredData.length > 0;
+  const isPartiallySelected = selectedProductIds.length > 0 && selectedProductIds.length < filteredData.length;
+
   if (isLoading) {
     return (
       <div className="p-4 md:p-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
+        <div className="text-center">読み込み中...</div>
       </div>
     );
   }
@@ -273,19 +307,28 @@ export default function ExportPage() {
             ) : (
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-medium text-slate-700">商品名</th>
-                        <th className="px-4 py-3 text-left font-medium text-slate-700">SKU</th>
-                        <th className="px-4 py-3 text-left font-medium text-slate-700">価格</th>
-                        <th className="px-4 py-3 text-left font-medium text-slate-700">在庫数</th>
-                        <th className="px-4 py-3 text-left font-medium text-slate-700">カテゴリ</th>
-                        <th className="px-4 py-3 text-left font-medium text-slate-700">ステータス</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {filteredData.slice(0, 10).map((item: ExtractedData, index: number) => {
+                  <Table className="w-full text-sm">
+                    <TableHeader className="bg-slate-50">
+                      <TableRow>
+                        <TableHead className="px-4 py-3 text-left font-medium text-slate-700">
+                          <div className="flex items-center">
+                            <Checkbox
+                              checked={isAllSelected}
+                              onCheckedChange={handleSelectAll}
+                              data-testid="checkbox-select-all"
+                            />
+                            <span className="ml-2">商品名</span>
+                          </div>
+                        </TableHead>
+                        <TableHead className="px-4 py-3 text-left font-medium text-slate-700">品番</TableHead>
+                        <TableHead className="px-4 py-3 text-left font-medium text-slate-700">価格</TableHead>
+                        <TableHead className="px-4 py-3 text-left font-medium text-slate-700">在庫数</TableHead>
+                        <TableHead className="px-4 py-3 text-left font-medium text-slate-700">カテゴリ</TableHead>
+                        <TableHead className="px-4 py-3 text-left font-medium text-slate-700">ステータス</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-slate-200">
+                      {filteredData.map((item: ExtractedData, index: number) => {
                         // Function to truncate long text
                         const truncateText = (text: string, maxLength: number = 50) => {
                           if (!text) return '-';
@@ -295,34 +338,41 @@ export default function ExportPage() {
                         const productName = item.productName || `Product_${item.id?.slice(-8)}`;
                         
                         return (
-                          <tr key={item.id} className="hover:bg-slate-50">
-                            <td className="px-4 py-2 max-w-xs">
-                              <div className="font-medium text-slate-900 truncate" title={productName}>
-                                {truncateText(productName, 30)}
+                          <TableRow key={item.id} className="hover:bg-slate-50">
+                            <TableCell className="px-4 py-2 max-w-xs">
+                              <div className="flex items-center">
+                                <Checkbox
+                                  checked={selectedProductIds.includes(String(item.id))}
+                                  onCheckedChange={() => handleProductSelect(String(item.id), !selectedProductIds.includes(String(item.id)))}
+                                  data-testid={`checkbox-product-${item.id}`}
+                                />
+                                <div className="ml-2 font-medium text-slate-900 truncate" title={productName}>
+                                  {truncateText(productName, 30)}
+                                </div>
                               </div>
                               {item.description && (
                                 <div className="text-xs text-slate-500 truncate" title={item.description}>
                                   {truncateText(item.description, 40)}
                                 </div>
                               )}
-                            </td>
-                            <td className="px-4 py-2 text-slate-700 max-w-20">
+                            </TableCell>
+                            <TableCell className="px-4 py-2 text-slate-700 max-w-20">
                               <div className="truncate" title={item.sku || '-'}>
                                 {truncateText(item.sku || '', 15)}
                               </div>
-                            </td>
-                            <td className="px-4 py-2 text-slate-700 text-right">
+                            </TableCell>
+                            <TableCell className="px-4 py-2 text-slate-700 text-right">
                               {item.price ? `¥${item.price.toLocaleString()}` : '-'}
-                            </td>
-                            <td className="px-4 py-2 text-slate-700 text-center">
+                            </TableCell>
+                            <TableCell className="px-4 py-2 text-slate-700 text-center">
                               {item.stock !== undefined ? item.stock : '-'}
-                            </td>
-                            <td className="px-4 py-2 text-slate-700 max-w-24">
+                            </TableCell>
+                            <TableCell className="px-4 py-2 text-slate-700 max-w-24">
                               <div className="truncate" title={item.category || '-'}>
                                 {truncateText(item.category || '', 20)}
                               </div>
-                            </td>
-                            <td className="px-4 py-2">
+                            </TableCell>
+                            <TableCell className="px-4 py-2">
                               {item.is_validated ? (
                                 <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
                                   修正済み
@@ -332,16 +382,16 @@ export default function ExportPage() {
                                   未確認
                                 </Badge>
                               )}
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
-                {filteredData.length > 10 && (
+                {filteredData.length > 20 && (
                   <div className="px-4 py-3 bg-slate-50 border-t text-center text-sm text-slate-600">
-                    他 {filteredData.length - 10} 件のデータがあります
+                    表示中: 20件 / 全{filteredData.length}件
                   </div>
                 )}
               </div>
@@ -349,25 +399,25 @@ export default function ExportPage() {
           </div>
           
           {/* Export Summary */}
-          <div className="mt-8 p-4 bg-slate-50 rounded-lg">
-            <h4 className="font-medium text-slate-800 mb-2">エクスポート概要</h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-600">対象データ数:</span>
-                <Badge variant="secondary" data-testid="badge-export-count">
-                  {filteredDataCount}件
-                </Badge>
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-medium text-blue-900 mb-2">エクスポート概要</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-blue-700">全体件数:</span>
+                <span className="ml-1 font-medium text-blue-900">{extractedData.length}件</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">出力形式:</span>
-                <span className="font-medium" data-testid="text-selected-format">
-                  {formatOptions.find(f => f.id === selectedFormat)?.name}
-                </span>
+              <div>
+                <span className="text-blue-700">フィルター後:</span>
+                <span className="ml-1 font-medium text-blue-900">{filteredDataCount}件</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">ファイル名:</span>
-                <span className="font-medium" data-testid="text-export-filename">
-                  {filename}.csv
+              <div>
+                <span className="text-blue-700">選択中:</span>
+                <span className="ml-1 font-medium text-blue-900">{selectedProductIds.length}件</span>
+              </div>
+              <div>
+                <span className="text-blue-700">出力予定:</span>
+                <span className="ml-1 font-medium text-blue-900">
+                  {selectedOnly && selectedProductIds.length > 0 ? selectedProductIds.length : filteredDataCount}件
                 </span>
               </div>
             </div>

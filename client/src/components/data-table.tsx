@@ -94,7 +94,7 @@ export default function DataTable({ data, selectedIds, onSelectionChange, onEdit
                 />
               </TableHead>
               <TableHead>商品名</TableHead>
-              <TableHead>SKU</TableHead>
+              <TableHead>品番</TableHead>
               <TableHead>価格</TableHead>
               <TableHead>在庫数</TableHead>
               <TableHead>カテゴリ</TableHead>

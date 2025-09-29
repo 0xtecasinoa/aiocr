@@ -337,7 +337,7 @@ export default function DetailModal({ isOpen, onClose, item }: DetailModalProps)
                   {/* SKU & JANコード */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white border border-slate-200 rounded-lg p-4">
-                      <Label htmlFor="sku" className="text-sm font-medium text-slate-700">SKU</Label>
+                      <Label htmlFor="sku" className="text-sm font-medium text-slate-700">品番</Label>
                       <Input
                         id="sku"
                         value={formData.sku || ""}

@@ -178,27 +178,54 @@ CSV_FORMATS = {
         ]
     },
     "raw": {
-        "headers": ["ID", "商品名", "SKU", "価格", "在庫", "カテゴリ", "説明", "ブランド", "製造元", "JANコード", "重量", "色", "素材", "原産地", "保証", "信頼度", "ステータス", "作成日", "更新日"],
+        "headers": [
+            "ロット番号", "区分", "大分類", "中分類", "発売日", "JANコード", "商品番号", 
+            "インストア", "キャンペーン名称", "仕入先", "メーカー名称", "キャンペーン名(IP名)", 
+            "商品名称", "参考販売価格", "容量価格(税)", "卸可能数", "完売数", "完売金額", 
+            "入数", "予約解禁日", "予約開始の可能日", "予約商品発送予定日", "ケース入数", 
+            "単品サイズ", "内箱サイズ", "カートンサイズ", "内箱GTIN", "外箱GTIN", 
+            "商品説明", "保材フィルム", "原産国", "対象年齢", "画像1", "画像2", 
+            "画像3", "画像4", "画像5", "画像6"
+        ],
         "mapping": lambda item: [
-            item.get("id", ""),
-            item.get("productName", ""),
-            item.get("sku", ""),
-            str(item.get("price", 0)) if item.get("price") else "",
-            str(item.get("stock", 0)) if item.get("stock") else "",
-            item.get("category", ""),
-            item.get("description", ""),
-            item.get("brand", ""),
-            item.get("manufacturer", ""),
-            item.get("jan_code", ""),
-            item.get("weight", ""),
-            item.get("color", ""),
-            item.get("material", ""),
-            item.get("origin", ""),
-            item.get("warranty", ""),
-            str(item.get("confidence_score", 0)) if item.get("confidence_score") else "",
-            item.get("status", ""),
-            item.get("created_at", ""),
-            item.get("updated_at", "")
+            item.get("lot_number", ""),  # ロット番号
+            item.get("classification", ""),  # 区分
+            item.get("category", ""),  # 大分類
+            item.get("sub_category", ""),  # 中分類
+            item.get("release_date", ""),  # 発売日
+            item.get("jan_code", ""),  # JANコード
+            item.get("sku", ""),  # 商品番号
+            item.get("in_store", ""),  # インストア
+            item.get("campaign_name", ""),  # キャンペーン名称
+            item.get("supplier", ""),  # 仕入先
+            item.get("manufacturer", ""),  # メーカー名称
+            item.get("ip_name", ""),  # キャンペーン名(IP名)
+            item.get("productName", ""),  # 商品名称
+            str(item.get("reference_price", 0)) if item.get("reference_price") else str(item.get("price", 0)) if item.get("price") else "",  # 参考販売価格
+            str(item.get("tax_included_price", 0)) if item.get("tax_included_price") else "",  # 容量価格(税)
+            str(item.get("wholesale_quantity", 0)) if item.get("wholesale_quantity") else "",  # 卸可能数
+            str(item.get("sold_out_quantity", 0)) if item.get("sold_out_quantity") else "",  # 完売数
+            str(item.get("sold_out_amount", 0)) if item.get("sold_out_amount") else "",  # 完売金額
+            str(item.get("stock", 0)) if item.get("stock") else "",  # 入数
+            item.get("reservation_start_date", ""),  # 予約解禁日
+            item.get("reservation_available_date", ""),  # 予約開始の可能日
+            item.get("reservation_shipping_date", ""),  # 予約商品発送予定日
+            str(item.get("case_quantity", 0)) if item.get("case_quantity") else "",  # ケース入数
+            item.get("product_size", "") or item.get("dimensions", ""),  # 単品サイズ
+            item.get("package_size", ""),  # 内箱サイズ
+            item.get("carton_size", ""),  # カートンサイズ
+            item.get("inner_box_gtin", ""),  # 内箱GTIN
+            item.get("outer_box_gtin", ""),  # 外箱GTIN
+            item.get("description", ""),  # 商品説明
+            item.get("packaging_material", ""),  # 保材フィルム
+            item.get("origin", ""),  # 原産国
+            item.get("target_age", ""),  # 対象年齢
+            item.get("image1_url", ""),  # 画像1
+            item.get("image2_url", ""),  # 画像2
+            item.get("image3_url", ""),  # 画像3
+            item.get("image4_url", ""),  # 画像4
+            item.get("image5_url", ""),  # 画像5
+            item.get("image6_url", "")   # 画像6
         ]
     }
 }
@@ -610,6 +637,36 @@ async def update_extracted_data(
         if "is_validated" in data_update:
             update_fields["is_validated"] = data_update["is_validated"]
         
+        # Enhanced extraction fields
+        if "release_date" in data_update:
+            update_fields["release_date"] = data_update["release_date"]
+        if "package_size" in data_update:
+            update_fields["package_size"] = data_update["package_size"]
+        if "carton_size" in data_update:
+            update_fields["carton_size"] = data_update["carton_size"]
+        if "product_size" in data_update:
+            update_fields["product_size"] = data_update["product_size"]
+        if "dimensions" in data_update:
+            update_fields["dimensions"] = data_update["dimensions"]
+        if "target_age" in data_update:
+            update_fields["target_age"] = data_update["target_age"]
+        if "packaging_material" in data_update:
+            update_fields["packaging_material"] = data_update["packaging_material"]
+        if "inner_box_gtin" in data_update:
+            update_fields["inner_box_gtin"] = data_update["inner_box_gtin"]
+        if "outer_box_gtin" in data_update:
+            update_fields["outer_box_gtin"] = data_update["outer_box_gtin"]
+        if "case_quantity" in data_update:
+            # Handle case_quantity conversion
+            case_qty_value = data_update["case_quantity"]
+            if case_qty_value == "" or case_qty_value is None:
+                update_fields["case_quantity"] = None
+            else:
+                try:
+                    update_fields["case_quantity"] = int(case_qty_value) if case_qty_value != "" else None
+                except (ValueError, TypeError):
+                    update_fields["case_quantity"] = None
+        
         print(f"DEBUG: Fields to update: {update_fields}")
         
         if update_fields:
@@ -683,9 +740,12 @@ async def validate_data(
 @router.get("/export/csv")
 async def export_data_to_csv(
     format: str = "raw",
+    selected_ids: Optional[str] = None,  # Comma-separated list of IDs
+    exclude_out_of_stock: bool = False,
+    include_images: bool = False,
     current_user: User = Depends(get_current_active_user)
 ):
-    """Export extracted data to CSV format."""
+    """Export extracted data to CSV format with filtering options."""
     
     try:
         # Validate format
@@ -694,6 +754,9 @@ async def export_data_to_csv(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unsupported format. Available formats: {list(CSV_FORMATS.keys())}"
             )
+        
+        # Build query filter
+        query_filter = {"user_id": str(current_user.id)}
         
         # Get user's extracted data
         extracted_data = await ExtractedData.find(
@@ -704,6 +767,25 @@ async def export_data_to_csv(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No data found for export"
+            )
+        
+        # Apply filters
+        filtered_data = extracted_data
+        
+        # Filter by selected IDs if provided
+        if selected_ids:
+            selected_id_list = [id.strip() for id in selected_ids.split(",") if id.strip()]
+            if selected_id_list:
+                filtered_data = [item for item in filtered_data if str(item.id) in selected_id_list]
+        
+        # Filter out zero stock items if requested
+        if exclude_out_of_stock:
+            filtered_data = [item for item in filtered_data if (item.stock or 0) > 0]
+        
+        if not filtered_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No data found after applying filters"
             )
         
         # Prepare CSV data
@@ -719,7 +801,7 @@ async def export_data_to_csv(
         writer.writerow(headers)
         
         # Write data rows
-        for item in extracted_data:
+        for item in filtered_data:
             item_dict = {
                 "id": str(item.id),
                 "productName": item.product_name or f"File_{item.uploaded_file_id[:8]}" if item.uploaded_file_id else "Unknown",
@@ -739,7 +821,39 @@ async def export_data_to_csv(
                 "confidence_score": item.confidence_score,
                 "status": item.status,
                 "created_at": item.created_at.isoformat() if item.created_at else "",
-                "updated_at": item.updated_at.isoformat() if item.updated_at else ""
+                "updated_at": item.updated_at.isoformat() if item.updated_at else "",
+                # Add new fields for 38-column format
+                "release_date": getattr(item, 'release_date', ''),
+                "package_size": getattr(item, 'package_size', ''),
+                "carton_size": getattr(item, 'carton_size', ''),
+                "lot_number": getattr(item, 'lot_number', ''),
+                "classification": getattr(item, 'classification', ''),
+                "sub_category": getattr(item, 'sub_category', ''),
+                "in_store": getattr(item, 'in_store', ''),
+                "campaign_name": getattr(item, 'campaign_name', ''),
+                "supplier": getattr(item, 'supplier', ''),
+                "ip_name": getattr(item, 'ip_name', ''),
+                "reference_price": getattr(item, 'reference_price', None),
+                "tax_included_price": getattr(item, 'tax_included_price', None),
+                "wholesale_quantity": getattr(item, 'wholesale_quantity', None),
+                "sold_out_quantity": getattr(item, 'sold_out_quantity', None),
+                "sold_out_amount": getattr(item, 'sold_out_amount', None),
+                "case_quantity": getattr(item, 'case_quantity', None),
+                "product_size": getattr(item, 'product_size', ''),
+                "inner_box_gtin": getattr(item, 'inner_box_gtin', ''),
+                "outer_box_gtin": getattr(item, 'outer_box_gtin', ''),
+                "packaging_material": getattr(item, 'packaging_material', ''),
+                "target_age": getattr(item, 'target_age', ''),
+                "reservation_start_date": getattr(item, 'reservation_start_date', ''),
+                "reservation_available_date": getattr(item, 'reservation_available_date', ''),
+                "reservation_shipping_date": getattr(item, 'reservation_shipping_date', ''),
+                "image1_url": getattr(item, 'image1_url', ''),
+                "image2_url": getattr(item, 'image2_url', ''),
+                "image3_url": getattr(item, 'image3_url', ''),
+                "image4_url": getattr(item, 'image4_url', ''),
+                "image5_url": getattr(item, 'image5_url', ''),
+                "image6_url": getattr(item, 'image6_url', ''),
+                "dimensions": getattr(item, 'dimensions', '')
             }
             
             row_data = mapping_func(item_dict)
@@ -751,7 +865,12 @@ async def export_data_to_csv(
         
         # Generate filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"extracted_data_{format}_{timestamp}.csv"
+        filter_suffix = ""
+        if selected_ids:
+            filter_suffix += "_selected"
+        if exclude_out_of_stock:
+            filter_suffix += "_no_zero_stock"
+        filename = f"extracted_data_{format}{filter_suffix}_{timestamp}.csv"
         
         # Return CSV file
         return StreamingResponse(
@@ -765,3 +884,117 @@ async def export_data_to_csv(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error exporting data: {str(e)}"
         ) 
+
+
+@router.post("/cleanup-descriptions")
+async def cleanup_product_descriptions(
+    current_user: User = Depends(get_current_active_user)
+):
+    """既存の商品説明を改善する一括処理"""
+    
+    try:
+        # ユーザーの全データを取得
+        extracted_data = await ExtractedData.find(
+            ExtractedData.user_id == str(current_user.id)
+        ).to_list()
+        
+        if not extracted_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No data found for cleanup"
+            )
+        
+        updated_count = 0
+        
+        for item in extracted_data:
+            # 長すぎる商品説明をクリーンアップ
+            if item.description and len(item.description) > 100:
+                # 商品名と特徴から適切な説明を生成
+                new_description = _generate_clean_description(item)
+                
+                if new_description != item.description:
+                    await item.update({"$set": {
+                        "description": new_description,
+                        "updated_at": datetime.utcnow()
+                    }})
+                    updated_count += 1
+                    print(f"✅ Updated description for item {item.id}: {new_description}")
+        
+        return {
+            "success": True,
+            "message": f"Successfully cleaned up {updated_count} product descriptions",
+            "updated_count": updated_count,
+            "total_count": len(extracted_data)
+        }
+        
+    except Exception as e:
+        print(f"DEBUG: Error cleaning up descriptions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error cleaning up descriptions: {str(e)}"
+        )
+
+
+def _generate_clean_description(item: ExtractedData) -> str:
+    """既存データから適切な商品説明を生成"""
+    
+    # 商品名から特徴を抽出
+    product_name = item.product_name or ""
+    category = item.category or ""
+    
+    # キャラクター情報
+    characters = ["ピカチュウ", "イーブイ", "ハリマロン", "フォッコ", "ケロマツ", "ポケモン"]
+    character = next((char for char in characters if char in product_name), None)
+    
+    # アイテムタイプ
+    item_types = {
+        "コインバンク": "貯金箱",
+        "貯金箱": "貯金箱", 
+        "フィギュア": "フィギュア",
+        "ぬいぐるみ": "ぬいぐるみ",
+        "トレーディング": "トレーディングアイテム",
+        "カード": "カード",
+        "グッズ": "グッズ"
+    }
+    
+    item_type = None
+    for key, value in item_types.items():
+        if key in product_name or key in category:
+            item_type = value
+            break
+    
+    # 簡潔な説明を生成
+    if character and item_type:
+        if item_type == "貯金箱":
+            return f"{character}の可愛い貯金箱です。インテリアとしても楽しめます。"
+        elif item_type == "フィギュア":
+            return f"{character}のフィギュアです。コレクションやディスプレイに最適。"
+        elif item_type == "ぬいぐるみ":
+            return f"{character}のぬいぐるみです。柔らかく抱き心地抜群。"
+        else:
+            return f"{character}の{item_type}です。"
+    elif character:
+        return f"{character}関連グッズです。"
+    elif item_type:
+        return f"{item_type}アイテムです。"
+    
+    # 価格情報を含める
+    features = []
+    if item.price:
+        features.append(f"希望小売価格: ¥{int(item.price):,}")
+    
+    if item.weight:
+        features.append(f"重量: {item.weight}")
+    
+    if item.material:
+        features.append(f"素材: {item.material}")
+    
+    if features:
+        base_desc = "商品の詳細情報: "
+        return base_desc + "、".join(features[:3])
+    
+    # フォールバック
+    if "ポケモン" in product_name or "アニメ" in category:
+        return "キャラクターグッズです。ファンの方におすすめのコレクションアイテムです。"
+    
+    return "商品の詳細については商品名やカテゴリをご参照ください。" 
