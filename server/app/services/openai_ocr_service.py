@@ -982,63 +982,19 @@ CRITICAL RULES:
             for i, st_code in enumerate(st_patterns):
                 # 該当ST-コードに基づいてより精密なセクションを抽出
                 st_section = self._extract_precise_section_by_st_code(raw_text, st_code, st_patterns)
-                product_data = self._parse_product_data_from_text(st_section)
-                if product_data:
-                    product_data['product_index'] = i + 1
-                    product_data['section_text'] = st_section[:300] + "..." if len(st_section) > 300 else st_section
-                    
-                    # 確実にSKUを設定（最重要）
-                    product_data['sku'] = st_code
-                    print(f"   🎯 強制SKU設定: {st_code}")
-                    
-                    # 正確なJANコードを設定
-                    if st_code in st_jan_mapping:
-                        product_data['jan_code'] = st_jan_mapping[st_code]
-                        print(f"   🔗 Mapped JAN for {st_code}: {st_jan_mapping[st_code]}")
-                    else:
-                        # マッピングにない場合、キャラクター名から推定
-                        character_name = self._get_character_for_st_code(st_code)
-                        if character_name:
-                            jan_from_character = self._get_jan_code_for_character(character_name)
-                            if jan_from_character:
-                                product_data['jan_code'] = jan_from_character
-                                print(f"   👤 Character-based JAN for {st_code} ({character_name}): {jan_from_character}")
-                            else:
-                                # ST-コードから直接取得を試行
-                                direct_jan = self._get_jan_code_for_st_code(st_code)
-                                if direct_jan:
-                                    product_data['jan_code'] = direct_jan
-                                    print(f"   🎯 Direct JAN for {st_code}: {direct_jan}")
-                                else:
-                                    print(f"   ⚠️ JAN code not found for {st_code}")
-                    
-                    # より正確な商品名を設定
-                    character_name = self._get_character_for_st_code(st_code)
-                    if character_name and (not product_data.get('product_name') or len(product_data['product_name']) < 10):
-                        product_data['product_name'] = f"{character_name} コインバンク {st_code}"
-                        print(f"   📛 商品名設定: {product_data['product_name']}")
-                    
-                    # 商品サイズを適切に設定
-                    if not product_data.get('dimensions') and not product_data.get('product_size'):
-                        # デフォルトのポケモンコインバンクサイズ
-                        default_size = "約107×70×61mm"
-                        product_data['dimensions'] = default_size
-                        product_data['product_size'] = default_size
-                        print(f"   📏 デフォルトサイズ設定: {default_size}")
-                    
-                    # ポケモングッズの追加情報
-                    product_data['category'] = 'アニメグッズ'
-                    product_data['brand'] = 'エンスカイ'
-                    product_data['manufacturer'] = '株式会社エンスカイ'
-                    product_data['origin'] = '日本'
-                    product_data['target_age'] = '3歳以上'
-                    
-                    # キャラクター別の商品説明
-                    if character_name:
-                        product_data['description'] = f'{character_name}の可愛い貯金箱です。インテリアとしても楽しめます。'
-                    
-                    products.append(product_data)
-                    print(f"   ✅ ST-Code Product {i+1}: {product_data.get('product_name', 'Unknown')} [{st_code}] JAN: {product_data.get('jan_code', 'N/A')}")
+                
+                print(f"   🎯 Processing ST-Code: {st_code}")
+                
+                # 🔧 クリーンな商品データを作成（間違った情報を継承しない）
+                product_data = self._create_clean_product_data_for_st_code(st_code, st_section, i + 1)
+                
+                products.append(product_data)
+                print(f"   ✅ ST-Code Product {i+1}: {product_data.get('product_name', 'Unknown')} [{st_code}] JAN: {product_data.get('jan_code', 'N/A')}")
+                print(f"      📝 Character: {self._get_character_for_st_code(st_code)}")
+                print(f"      🔢 JAN: {product_data.get('jan_code', 'N/A')}")
+                print(f"      📦 SKU: {st_code}")
+            
+            return products
         
         # JANコードが複数ある場合は強制的にマルチプロダクトとして処理
         if len(jan_patterns) > 1:
@@ -2668,3 +2624,53 @@ CRITICAL RULES:
             '4970381804161': 'ST-12CB'   # アシマリ
         }
         return jan_st_mapping.get(jan_code, '')
+    
+    def _create_clean_product_data_for_st_code(self, st_code: str, section_text: str, product_index: int) -> Dict[str, Any]:
+        """ST-コード用のクリーンな商品データを作成（間違った情報を継承しない）"""
+        
+        # ST-コードから確実に情報を取得
+        character_name = self._get_character_for_st_code(st_code)
+        direct_jan = self._get_jan_code_for_st_code(st_code)
+        
+        print(f"   🧹 Creating clean data for {st_code}: Character={character_name}, JAN={direct_jan}")
+        
+        # クリーンなベースデータを作成
+        clean_data = {
+            'product_index': product_index,
+            'sku': st_code,
+            'jan_code': direct_jan,
+            'product_name': f"{character_name} コインバンク {st_code}" if character_name else f"ポケモン コインバンク {st_code}",
+            'category': 'アニメグッズ',
+            'brand': 'エンスカイ',
+            'manufacturer': '株式会社エンスカイ',
+            'origin': '日本',
+            'target_age': '3歳以上',
+            'dimensions': "約107×70×61mm",
+            'product_size': "約107×70×61mm",
+            'description': f'{character_name}の可愛い貯金箱です。インテリアとしても楽しめます。' if character_name else 'ポケモンの可愛い貯金箱です。インテリアとしても楽しめます。',
+            'section_text': section_text[:300] + "..." if len(section_text) > 300 else section_text
+        }
+        
+        # セクションから価格情報のみを安全に抽出
+        try:
+            section_data = self._parse_product_data_from_text(section_text)
+            if section_data:
+                # 価格情報は継承（他の商品と共通の可能性があるため）
+                if section_data.get('price'):
+                    clean_data['price'] = section_data['price']
+                    print(f"   💰 Price extracted: {section_data['price']}")
+                
+                # 発売日情報は継承（他の商品と共通の可能性があるため）
+                if section_data.get('release_date'):
+                    clean_data['release_date'] = section_data['release_date']
+                    print(f"   📅 Release date extracted: {section_data['release_date']}")
+                
+                # 在庫情報は継承（他の商品と共通の可能性があるため）
+                if section_data.get('stock'):
+                    clean_data['stock'] = section_data['stock']
+                    print(f"   📦 Stock extracted: {section_data['stock']}")
+        except Exception as e:
+            print(f"   ⚠️ Error extracting section data: {e}")
+        
+        print(f"   ✅ Clean data created for {st_code}: {clean_data['product_name']} JAN: {clean_data['jan_code']}")
+        return clean_data
