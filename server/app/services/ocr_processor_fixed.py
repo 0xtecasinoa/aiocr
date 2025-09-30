@@ -407,40 +407,70 @@ class OCRProcessor:
             
             # Use product data if provided (for multi-product), otherwise use structured data
             if product_data:
-                # Multi-product record
+                # Multi-product record with all 38 fields
                 extracted_data = ExtractedData(
                     user_id=str(job.user_id),
                     conversion_job_id=str(job.id),
                     uploaded_file_id=str(file_upload.id),
                     folder_name=file_upload.folder_name,
                     
-                    # Product fields from product_data
+                    # Core product fields
                     product_name=product_data.get('product_name') or structured.get('product_name', ''),
-                    sku=product_data.get('sku') or structured.get('sku', ''),
                     jan_code=product_data.get('jan_code') or structured.get('jan_code', ''),
-                    price=self._safe_float_convert(product_data.get('price') or structured.get('price')),
+                    description=product_data.get('description') or structured.get('description', ''),
+                    
+                    # 38 Company-Specified Fields
+                    lot_number=product_data.get('lot_number') or structured.get('lot_number', ''),
+                    classification=product_data.get('classification') or structured.get('classification', ''),
+                    major_category=product_data.get('major_category') or structured.get('major_category', ''),
+                    minor_category=product_data.get('minor_category') or structured.get('minor_category', ''),
+                    release_date=product_data.get('release_date') or structured.get('release_date', ''),
+                    product_code=product_data.get('product_code') or product_data.get('sku') or structured.get('sku', ''),
+                    in_store=product_data.get('in_store') or structured.get('in_store', ''),
+                    genre_name=product_data.get('genre_name') or structured.get('genre_name', ''),
+                    supplier_name=product_data.get('supplier_name') or structured.get('supplier_name', ''),
+                    ip_name=product_data.get('ip_name') or structured.get('ip_name', ''),
+                    character_name=product_data.get('character_name') or structured.get('character_name', ''),
+                    reference_sales_price=self._safe_float_convert(product_data.get('reference_sales_price') or structured.get('reference_sales_price')),
+                    wholesale_price=self._safe_float_convert(product_data.get('wholesale_price') or product_data.get('price') or structured.get('price')),
+                    wholesale_quantity=self._safe_int_convert(product_data.get('wholesale_quantity') or structured.get('wholesale_quantity')),
                     stock=self._safe_int_convert(product_data.get('stock') or structured.get('stock')),
+                    order_amount=self._safe_float_convert(product_data.get('order_amount') or structured.get('order_amount')),
+                    quantity_per_pack=product_data.get('quantity_per_pack') or structured.get('quantity_per_pack', ''),
+                    reservation_release_date=product_data.get('reservation_release_date') or structured.get('reservation_release_date', ''),
+                    reservation_deadline=product_data.get('reservation_deadline') or structured.get('reservation_deadline', ''),
+                    reservation_shipping_date=product_data.get('reservation_shipping_date') or structured.get('reservation_shipping_date', ''),
+                    case_pack_quantity=self._safe_int_convert(product_data.get('case_pack_quantity') or structured.get('case_pack_quantity')),
+                    single_product_size=product_data.get('single_product_size') or structured.get('single_product_size', ''),
+                    inner_box_size=product_data.get('inner_box_size') or structured.get('inner_box_size', ''),
+                    carton_size=product_data.get('carton_size') or structured.get('carton_size', ''),
+                    inner_box_gtin=product_data.get('inner_box_gtin') or structured.get('inner_box_gtin', ''),
+                    outer_box_gtin=product_data.get('outer_box_gtin') or structured.get('outer_box_gtin', ''),
+                    protective_film_material=product_data.get('protective_film_material') or structured.get('protective_film_material', ''),
+                    country_of_origin=product_data.get('country_of_origin') or structured.get('country_of_origin', ''),
+                    target_age=product_data.get('target_age') or structured.get('target_age', ''),
+                    image1=product_data.get('image1') or structured.get('image1', ''),
+                    image2=product_data.get('image2') or structured.get('image2', ''),
+                    image3=product_data.get('image3') or structured.get('image3', ''),
+                    image4=product_data.get('image4') or structured.get('image4', ''),
+                    image5=product_data.get('image5') or structured.get('image5', ''),
+                    image6=product_data.get('image6') or structured.get('image6', ''),
+                    
+                    # Legacy fields for backward compatibility
+                    sku=product_data.get('sku') or structured.get('sku', ''),
+                    price=self._safe_float_convert(product_data.get('price') or structured.get('price')),
                     category=product_data.get('category') or structured.get('category', ''),
                     brand=product_data.get('brand') or structured.get('brand', ''),
                     manufacturer=product_data.get('manufacturer') or structured.get('manufacturer', ''),
-                    description=product_data.get('description') or structured.get('description', ''),
                     weight=product_data.get('weight') or structured.get('weight', ''),
                     color=product_data.get('color') or structured.get('color', ''),
                     material=product_data.get('material') or structured.get('material', ''),
                     origin=product_data.get('origin') or structured.get('origin', ''),
                     warranty=product_data.get('warranty') or structured.get('warranty', ''),
                     dimensions=product_data.get('dimensions') or structured.get('dimensions', ''),
-                    
-                    # New fields for enhanced extraction
-                    release_date=product_data.get('release_date') or structured.get('release_date', ''),
                     package_size=product_data.get('package_size') or structured.get('package_size', ''),
-                    carton_size=product_data.get('carton_size') or structured.get('carton_size', ''),
                     product_size=product_data.get('product_size') or structured.get('product_size', ''),
-                    target_age=product_data.get('target_age') or structured.get('target_age', ''),
                     packaging_material=product_data.get('packaging_material') or structured.get('packaging_material', ''),
-                    inner_box_gtin=product_data.get('inner_box_gtin') or structured.get('inner_box_gtin', ''),
-                    outer_box_gtin=product_data.get('outer_box_gtin') or structured.get('outer_box_gtin', ''),
-                    case_quantity=self._safe_int_convert(product_data.get('case_quantity') or structured.get('case_quantity')),
                     
                     # OCR technical fields
                     raw_text=ocr_result.get('raw_text', ''),
@@ -467,40 +497,70 @@ class OCRProcessor:
                     updated_at=datetime.utcnow()
                 )
             else:
-                # Single product record
+                # Single product record with all 38 fields
                 extracted_data = ExtractedData(
                     user_id=str(job.user_id),
                     conversion_job_id=str(job.id),
                     uploaded_file_id=str(file_upload.id),
                     folder_name=file_upload.folder_name,
                     
-                    # Product fields from structured data
+                    # Core product fields
                     product_name=structured.get('product_name', ''),
-                    sku=structured.get('sku', ''),
                     jan_code=structured.get('jan_code', ''),
-                    price=self._safe_float_convert(structured.get('price')),
+                    description=structured.get('description', ''),
+                    
+                    # 38 Company-Specified Fields
+                    lot_number=structured.get('lot_number', ''),
+                    classification=structured.get('classification', ''),
+                    major_category=structured.get('major_category', ''),
+                    minor_category=structured.get('minor_category', ''),
+                    release_date=structured.get('release_date', ''),
+                    product_code=structured.get('product_code') or structured.get('sku', ''),
+                    in_store=structured.get('in_store', ''),
+                    genre_name=structured.get('genre_name', ''),
+                    supplier_name=structured.get('supplier_name', ''),
+                    ip_name=structured.get('ip_name', ''),
+                    character_name=structured.get('character_name', ''),
+                    reference_sales_price=self._safe_float_convert(structured.get('reference_sales_price')),
+                    wholesale_price=self._safe_float_convert(structured.get('wholesale_price') or structured.get('price')),
+                    wholesale_quantity=self._safe_int_convert(structured.get('wholesale_quantity')),
                     stock=self._safe_int_convert(structured.get('stock')),
+                    order_amount=self._safe_float_convert(structured.get('order_amount')),
+                    quantity_per_pack=structured.get('quantity_per_pack', ''),
+                    reservation_release_date=structured.get('reservation_release_date', ''),
+                    reservation_deadline=structured.get('reservation_deadline', ''),
+                    reservation_shipping_date=structured.get('reservation_shipping_date', ''),
+                    case_pack_quantity=self._safe_int_convert(structured.get('case_pack_quantity')),
+                    single_product_size=structured.get('single_product_size', ''),
+                    inner_box_size=structured.get('inner_box_size', ''),
+                    carton_size=structured.get('carton_size', ''),
+                    inner_box_gtin=structured.get('inner_box_gtin', ''),
+                    outer_box_gtin=structured.get('outer_box_gtin', ''),
+                    protective_film_material=structured.get('protective_film_material', ''),
+                    country_of_origin=structured.get('country_of_origin', ''),
+                    target_age=structured.get('target_age', ''),
+                    image1=structured.get('image1', ''),
+                    image2=structured.get('image2', ''),
+                    image3=structured.get('image3', ''),
+                    image4=structured.get('image4', ''),
+                    image5=structured.get('image5', ''),
+                    image6=structured.get('image6', ''),
+                    
+                    # Legacy fields for backward compatibility
+                    sku=structured.get('sku', ''),
+                    price=self._safe_float_convert(structured.get('price')),
                     category=structured.get('category', ''),
                     brand=structured.get('brand', ''),
                     manufacturer=structured.get('manufacturer', ''),
-                    description=structured.get('description', ''),
                     weight=structured.get('weight', ''),
                     color=structured.get('color', ''),
                     material=structured.get('material', ''),
                     origin=structured.get('origin', ''),
                     warranty=structured.get('warranty', ''),
                     dimensions=structured.get('dimensions', ''),
-                    
-                    # New fields for enhanced extraction
-                    release_date=structured.get('release_date', ''),
                     package_size=structured.get('package_size', ''),
-                    carton_size=structured.get('carton_size', ''),
                     product_size=structured.get('product_size', ''),
-                    target_age=structured.get('target_age', ''),
                     packaging_material=structured.get('packaging_material', ''),
-                    inner_box_gtin=structured.get('inner_box_gtin', ''),
-                    outer_box_gtin=structured.get('outer_box_gtin', ''),
-                    case_quantity=self._safe_int_convert(structured.get('case_quantity')),
                     
                     # OCR technical fields
                     raw_text=ocr_result.get('raw_text', ''),

@@ -133,61 +133,131 @@ class OpenAIOCRService:
             if "eng" in language.lower():
                 language_context += "This image contains English text. "
             
-            # Create comprehensive OCR prompt for maximum accuracy and multiple product detection
+            # Create comprehensive OCR prompt for maximum accuracy and direct structured extraction
             ocr_prompt = f"""
             {language_context}
             
-            Please perform high-accuracy OCR on this product catalog image. This image likely contains MULTIPLE DIFFERENT PRODUCTS.
+            You are an advanced OCR and data extraction AI. Extract product information from this image and return structured data.
             
-            CRITICAL MULTI-PRODUCT DETECTION:
-            This appears to be a product catalog page with multiple distinct products. Each product typically has:
-            - Different character designs/images (ピカチュウ, イーブイ, etc.)
-            - Separate product codes (ST-03CB, ST-04CB, ST-05CB, etc.)
-            - Individual JAN codes (13-digit barcodes)
-            - Distinct prices and specifications
+            CRITICAL: This image may contain MULTIPLE DIFFERENT PRODUCTS. Each product should be extracted as a separate object.
             
-            BARCODE AND JAN CODE EXTRACTION PRIORITY:
-            1. **BARCODES**: Look carefully for BARCODE IMAGES - black and white striped patterns
-            2. **JAN NUMBERS UNDER BARCODES**: Extract the numbers displayed below barcode stripes
-            3. **JAN FORMAT**: 13-digit numbers like 4970381806026, often starting with 4970381
-            4. **BARCODE LABELS**: Look for text like "単品JANコード" or "JANコード" near barcodes
-            5. **READ BARCODE NUMBERS**: Even if text is small, focus on extracting the complete 13-digit number
+            EXTRACTION REQUIREMENTS - For EACH product, extract ALL available fields from the following 38 items:
             
-            INSTRUCTIONS:
-            1. Extract ALL visible text with 100% accuracy
-            2. **PRIORITIZE BARCODE READING**: Look for striped barcode patterns and read the numbers underneath
-            3. IDENTIFY each separate product section/area in the image
-            4. For each product, extract ALL related information
-            5. AVOID repeating shared information (like company name, general descriptions)
-            6. Focus on product-specific information: names, codes, prices, sizes, dates
-            7. Preserve exact spacing and formatting for product data
-            8. For Japanese text, preserve kanji, hiragana, and katakana exactly
-            9. Extract numbers, prices, codes with exact formatting
-            10. If you see the same product name with different codes, treat as separate products
+            **基本情報 (Basic Information):**
+            1. lot_number - ロット番号
+            2. classification - 区分
+            3. major_category - 大分類
+            4. minor_category - 中分類
+            5. release_date - 発売日 (format: YYYY/MM/DD or YYYY年MM月DD日)
+            6. jan_code - JANコード (13-digit barcode number, often starts with 4970381)
+            7. product_code - 商品番号 (e.g., EN-1420, ST-03CB)
+            8. in_store - インストア
+            9. genre_name - ジャンル名称
+            10. supplier_name - 仕入先
+            11. ip_name - メーカー名称
+            12. character_name - キャラクター名(IP名)
+            13. product_name - 商品名称
             
-            SPECIAL FOCUS - Look for these product details FOR EACH PRODUCT:
-            - **JANコード (JAN codes)** - 13-digit numbers starting with 4 (MOST IMPORTANT - often shown as barcodes)
-            - 商品名 (Product names) - usually contains character names like ピカチュウ, イーブイ, etc.
-            - 商品コード (Product codes) - ST-03CB, ST-04CB, ST-05CB, EN-XXXX patterns
-            - 希望小売価格 (Prices) - amounts with 円 or ¥
-            - 発売予定日 (Release dates) - dates like 2024年12月
-            - サイズ情報 (Size info) - dimensions with mm, cm
-            - 入数 (Quantities) - numerical amounts
-            - キャラクター名 (Character names) - specific Pokemon or anime character names
+            **価格・数量情報 (Price & Quantity):**
+            14. reference_sales_price - 参考販売価格 (number only, e.g., 1100)
+            15. wholesale_price - 卸単価（抜） (number only)
+            16. wholesale_quantity - 卸可能数 (integer)
+            17. stock - 発注数 (integer)
+            18. order_amount - 発注金額 (number)
+            19. quantity_per_pack - 入数 (e.g., "60", "12個入り")
             
-            RESPONSE FORMAT - Return valid JSON only:
+            **予約情報 (Reservation):**
+            20. reservation_release_date - 予約解禁日
+            21. reservation_deadline - 予約締め切り日
+            22. reservation_shipping_date - 予約商品発送予定日
+            
+            **サイズ・梱包情報 (Size & Packaging):**
+            23. case_pack_quantity - ケース梱入数 (integer, e.g., 72)
+            24. single_product_size - 単品サイズ (e.g., "91×66mm")
+            25. inner_box_size - 内箱サイズ
+            26. carton_size - カートンサイズ
+            27. inner_box_gtin - 内箱GTIN (13-14 digits)
+            28. outer_box_gtin - 外箱GTIN (13-14 digits)
+            
+            **その他情報 (Other):**
+            29. description - 商品説明
+            30. protective_film_material - 機材フィルム
+            31. country_of_origin - 原産国 (e.g., "日本", "中国")
+            32. target_age - 対象年齢 (e.g., "3歳以上")
+            33. image1 - 画像1 (URL if present)
+            34. image2 - 画像2 (URL if present)
+            35. image3 - 画像3 (URL if present)
+            36. image4 - 画像4 (URL if present)
+            37. image5 - 画像5 (URL if present)
+            38. image6 - 画像6 (URL if present)
+            
+            **BARCODE READING PRIORITY:**
+            - Look for BLACK AND WHITE STRIPED BARCODE PATTERNS
+            - Read the numbers displayed UNDER the barcode stripes carefully
+            - JAN codes are typically 13 digits starting with 4 (e.g., 4970381806170)
+            
+            **MULTI-PRODUCT HANDLING:**
+            - If you detect multiple products (different product codes, JAN codes, or character names), extract each as a separate product
+            - Each product should have its own complete set of fields
+            - Do NOT mix information from different products
+            
+            RESPONSE FORMAT - Return ONLY valid JSON in this exact structure:
             {{
-                "raw_text": "Clean extracted text without repetition, preserving structure",
+                "raw_text": "All visible text extracted from the image",
                 "confidence_score": 95.0,
-                "language_detected": "japanese"
+                "language_detected": "japanese",
+                "products": [
+                    {{
+                        "product_name": "extracted value or null",
+                        "jan_code": "extracted value or null",
+                        "product_code": "extracted value or null",
+                        "lot_number": "extracted value or null",
+                        "classification": "extracted value or null",
+                        "major_category": "extracted value or null",
+                        "minor_category": "extracted value or null",
+                        "release_date": "extracted value or null",
+                        "in_store": "extracted value or null",
+                        "genre_name": "extracted value or null",
+                        "supplier_name": "extracted value or null",
+                        "ip_name": "extracted value or null",
+                        "character_name": "extracted value or null",
+                        "reference_sales_price": number or null,
+                        "wholesale_price": number or null,
+                        "wholesale_quantity": number or null,
+                        "stock": number or null,
+                        "order_amount": number or null,
+                        "quantity_per_pack": "extracted value or null",
+                        "reservation_release_date": "extracted value or null",
+                        "reservation_deadline": "extracted value or null",
+                        "reservation_shipping_date": "extracted value or null",
+                        "case_pack_quantity": number or null,
+                        "single_product_size": "extracted value or null",
+                        "inner_box_size": "extracted value or null",
+                        "carton_size": "extracted value or null",
+                        "inner_box_gtin": "extracted value or null",
+                        "outer_box_gtin": "extracted value or null",
+                        "description": "extracted value or null",
+                        "protective_film_material": "extracted value or null",
+                        "country_of_origin": "extracted value or null",
+                        "target_age": "extracted value or null",
+                        "image1": "extracted value or null",
+                        "image2": "extracted value or null",
+                        "image3": "extracted value or null",
+                        "image4": "extracted value or null",
+                        "image5": "extracted value or null",
+                        "image6": "extracted value or null"
+                    }}
+                ]
             }}
             
-            CRITICAL: 
-            - Return ONLY valid JSON
-            - Do NOT repeat the same text multiple times
-            - Extract each piece of information only once
-            - Focus on unique product data, not repeated headers/footers
-            - **PRIORITIZE BARCODE NUMBERS** - even if they appear small or under striped patterns
+            CRITICAL RULES:
+            1. Return ONLY valid JSON - no markdown, no extra text
+            2. If a field is not visible in the image, set it to null (not empty string)
+            3. For numbers (prices, quantities), return as numbers not strings
+            4. For dates, preserve the original format from the image
+            5. Extract Japanese text exactly as shown (kanji, hiragana, katakana)
+            6. If only 1 product is detected, the "products" array should have 1 object
+            7. If multiple products are detected, create separate objects for each
             """
             
             print(f"🤖 OPENAI OCR: Processing image with {self.model}")
@@ -213,7 +283,7 @@ class OpenAIOCRService:
                         ]
                     }
                 ],
-                max_tokens=4000,
+                max_tokens=16000,  # Increased for 38 fields per product
                 temperature=0.1  # Low temperature for consistent, accurate results
             )
             
@@ -237,26 +307,34 @@ class OpenAIOCRService:
                         print("🔍 DEBUG: Found JSON in markdown code block")
                         result = json.loads(json_match.group(1))
                     else:
-                        # Try to find JSON anywhere in the response
-                        json_match = re.search(r'(\{[^{}]*"raw_text"[^{}]*\})', response_text, re.DOTALL)
+                        # Try to find complete JSON with products array
+                        json_match = re.search(r'(\{.*?"products"\s*:\s*\[.*?\].*?\})', response_text, re.DOTALL)
                         if json_match:
-                            print("🔍 DEBUG: Found JSON pattern in response")
+                            print("🔍 DEBUG: Found JSON with products array")
                             result = json.loads(json_match.group(1))
                         else:
-                            print("⚠️  DEBUG: No JSON found, using fallback")
-                        # Fallback: treat entire response as raw text
-                        result = {
-                            "raw_text": response_text,
-                            "confidence_score": 90.0,
-                            "language_detected": "unknown",
-                            "product_info": {},
-                            "word_confidences": {},
-                            "processing_metadata": {"method": "openai_gpt4_vision", "model": self.model}
-                        }
+                            # Try to find any JSON object
+                            json_match = re.search(r'(\{.*?"raw_text".*?\})', response_text, re.DOTALL)
+                            if json_match:
+                                print("🔍 DEBUG: Found basic JSON pattern")
+                                result = json.loads(json_match.group(1))
+                            else:
+                                print("⚠️  DEBUG: No JSON found, using fallback")
+                                # Fallback: treat entire response as raw text
+                                result = {
+                                    "raw_text": response_text,
+                                    "confidence_score": 90.0,
+                                    "language_detected": "unknown",
+                                    "products": [],
+                                    "word_confidences": {},
+                                    "processing_metadata": {"method": "openai_gpt4_vision", "model": self.model}
+                                }
                             
                 print(f"🔍 DEBUG: Parsed result keys: {list(result.keys())}")
-                if 'product_info' in result:
-                    print(f"🔍 DEBUG: Product info: {result['product_info']}")
+                if 'products' in result:
+                    print(f"🔍 DEBUG: Products found: {len(result.get('products', []))} items")
+                    for i, p in enumerate(result.get('products', [])[:3]):  # Show first 3 products
+                        print(f"  Product {i+1}: {p.get('product_name', 'N/A')} | JAN: {p.get('jan_code', 'N/A')}")
                         
             except json.JSONDecodeError as e:
                 print(f"⚠️  DEBUG: JSON parsing failed: {e}")
@@ -290,63 +368,131 @@ class OpenAIOCRService:
             result.setdefault("bounding_boxes", [])
             result.setdefault("text_blocks", [])
             
-            # Parse structured data from raw text - support multiple products
+            # Check if OpenAI returned structured products array
             raw_text = result.get("raw_text", "")
+            products_from_ai = result.get("products", [])
             
-            # Detect if this is a multi-product document
-            multiple_products = self._detect_multiple_products(raw_text)
-            
-            if multiple_products:
-                print(f"🔍 DETECTED MULTIPLE PRODUCTS: {len(multiple_products)} products found")
-                # Return the first product as the main structured data, but include all products in _products_list
-                structured_data = {
-                    "product_name": multiple_products[0].get('product_name'),
-                    "sku": multiple_products[0].get('sku'),
-                    "jan_code": multiple_products[0].get('jan_code'),
-                    "price": multiple_products[0].get('price'),
-                    "release_date": multiple_products[0].get('release_date'),
-                    "category": multiple_products[0].get('category'),
-                    "brand": multiple_products[0].get('brand'),
-                    "manufacturer": multiple_products[0].get('manufacturer'),
-                    "product_index": multiple_products[0].get('product_index', 1),
-                    "section_text": multiple_products[0].get('section_text', ''),
-                    "total_products_detected": len(multiple_products),
-                    "has_multiple_products": True
-                }
-                # Store complete product list for processor
-                structured_data["_products_list"] = [
-                    {
-                        "product_name": p.get('product_name'),
-                        "sku": p.get('sku'),
-                        "jan_code": p.get('jan_code'),
-                        "price": p.get('price'),
-                        "release_date": p.get('release_date'),
-                        "category": p.get('category'),
-                        "brand": p.get('brand'),
-                        "manufacturer": p.get('manufacturer'),
-                        "product_index": p.get('product_index', i+1),
-                        "section_text": p.get('section_text', '')
-                    }
-                    for i, p in enumerate(multiple_products)
-                ]
+            if products_from_ai and len(products_from_ai) > 0:
+                print(f"✅ OPENAI RETURNED {len(products_from_ai)} STRUCTURED PRODUCTS")
                 
-                # Log all detected products
-                print("🏷️ ALL DETECTED PRODUCTS:")
-                print("-" * 40)
-                for i, product in enumerate(multiple_products, 1):
-                    print(f"Product {i}:")
-                    print(f"  Name: {product.get('product_name', 'Not detected')}")
-                    print(f"  SKU: {product.get('sku', 'Not detected')}")
-                    print(f"  JAN Code: {product.get('jan_code', 'Not detected')}")
-                    print(f"  Price: {product.get('price', 'Not detected')}")
-                    print(f"  Category: {product.get('category', 'Not detected')}")
-                    print(f"  Brand: {product.get('brand', 'Not detected')}")
-                    if i < len(multiple_products):
-                        print("  " + "-" * 38)
+                # Process products from OpenAI's structured response
+                structured_products = []
+                for i, ai_product in enumerate(products_from_ai):
+                    # OpenAI returned all 38 fields - use them directly
+                    product_data = {
+                        # Core fields
+                        "product_name": ai_product.get('product_name'),
+                        "jan_code": ai_product.get('jan_code'),
+                        "description": ai_product.get('description'),
+                        
+                        # 38 Company-Specified Fields
+                        "lot_number": ai_product.get('lot_number'),
+                        "classification": ai_product.get('classification'),
+                        "major_category": ai_product.get('major_category'),
+                        "minor_category": ai_product.get('minor_category'),
+                        "release_date": ai_product.get('release_date'),
+                        "product_code": ai_product.get('product_code'),
+                        "in_store": ai_product.get('in_store'),
+                        "genre_name": ai_product.get('genre_name'),
+                        "supplier_name": ai_product.get('supplier_name'),
+                        "ip_name": ai_product.get('ip_name'),
+                        "character_name": ai_product.get('character_name'),
+                        "reference_sales_price": ai_product.get('reference_sales_price'),
+                        "wholesale_price": ai_product.get('wholesale_price'),
+                        "wholesale_quantity": ai_product.get('wholesale_quantity'),
+                        "stock": ai_product.get('stock'),
+                        "order_amount": ai_product.get('order_amount'),
+                        "quantity_per_pack": ai_product.get('quantity_per_pack'),
+                        "reservation_release_date": ai_product.get('reservation_release_date'),
+                        "reservation_deadline": ai_product.get('reservation_deadline'),
+                        "reservation_shipping_date": ai_product.get('reservation_shipping_date'),
+                        "case_pack_quantity": ai_product.get('case_pack_quantity'),
+                        "single_product_size": ai_product.get('single_product_size'),
+                        "inner_box_size": ai_product.get('inner_box_size'),
+                        "carton_size": ai_product.get('carton_size'),
+                        "inner_box_gtin": ai_product.get('inner_box_gtin'),
+                        "outer_box_gtin": ai_product.get('outer_box_gtin'),
+                        "protective_film_material": ai_product.get('protective_film_material'),
+                        "country_of_origin": ai_product.get('country_of_origin'),
+                        "target_age": ai_product.get('target_age'),
+                        "image1": ai_product.get('image1'),
+                        "image2": ai_product.get('image2'),
+                        "image3": ai_product.get('image3'),
+                        "image4": ai_product.get('image4'),
+                        "image5": ai_product.get('image5'),
+                        "image6": ai_product.get('image6'),
+                        
+                        # Legacy fields for backward compatibility
+                        "sku": ai_product.get('product_code'),  # Use product_code as SKU
+                        "price": ai_product.get('wholesale_price') or ai_product.get('reference_sales_price'),
+                        "category": ai_product.get('major_category'),
+                        "brand": ai_product.get('ip_name'),
+                        "manufacturer": ai_product.get('supplier_name'),
+                        
+                        # Meta fields
+                        "product_index": i + 1,
+                        "section_text": raw_text[:300] + "..." if len(raw_text) > 300 else raw_text
+                    }
+                    structured_products.append(product_data)
+                    
+                    # Count how many of the 38 fields were extracted
+                    fields_38 = [
+                        'lot_number', 'classification', 'major_category', 'minor_category', 
+                        'release_date', 'jan_code', 'product_code', 'in_store', 'genre_name',
+                        'supplier_name', 'ip_name', 'character_name', 'product_name',
+                        'reference_sales_price', 'wholesale_price', 'wholesale_quantity', 
+                        'stock', 'order_amount', 'quantity_per_pack', 'reservation_release_date',
+                        'reservation_deadline', 'reservation_shipping_date', 'case_pack_quantity',
+                        'single_product_size', 'inner_box_size', 'carton_size', 'inner_box_gtin',
+                        'outer_box_gtin', 'description', 'protective_film_material', 
+                        'country_of_origin', 'target_age', 'image1', 'image2', 'image3', 
+                        'image4', 'image5', 'image6'
+                    ]
+                    extracted_count = sum(1 for field in fields_38 if product_data.get(field))
+                    
+                    print(f"📦 Product {i+1}: {extracted_count}/38 fields extracted")
+                    print(f"  商品名: {product_data.get('product_name', 'Not detected')}")
+                    print(f"  JANコード: {product_data.get('jan_code', 'Not detected')}")
+                    print(f"  商品番号: {product_data.get('product_code', 'Not detected')}")
+                    print(f"  参考販売価格: {product_data.get('reference_sales_price', 'Not detected')}")
+                    print(f"  大分類: {product_data.get('major_category', 'Not detected')}")
+                    print(f"  仕入先: {product_data.get('supplier_name', 'Not detected')}")
+                
+                # Create structured_data with first product as main, all products in _products_list
+                if len(structured_products) > 1:
+                    structured_data = structured_products[0].copy()
+                    structured_data["has_multiple_products"] = True
+                    structured_data["total_products_detected"] = len(structured_products)
+                    structured_data["_products_list"] = structured_products
+                else:
+                    structured_data = structured_products[0]
+                    structured_data["has_multiple_products"] = False
             else:
-                # Single product processing
-                structured_data = self._parse_product_data_from_text(raw_text)
-                structured_data["has_multiple_products"] = False
+                # Fallback: Use Python regex extraction if OpenAI didn't return products
+                print("⚠️ OpenAI didn't return structured products, falling back to Python extraction")
+                multiple_products = self._detect_multiple_products(raw_text)
+                
+                if multiple_products:
+                    print(f"🔍 DETECTED MULTIPLE PRODUCTS: {len(multiple_products)} products found")
+                    structured_data = {
+                        "product_name": multiple_products[0].get('product_name'),
+                        "sku": multiple_products[0].get('sku'),
+                        "jan_code": multiple_products[0].get('jan_code'),
+                        "price": multiple_products[0].get('price'),
+                        "release_date": multiple_products[0].get('release_date'),
+                        "category": multiple_products[0].get('category'),
+                        "brand": multiple_products[0].get('brand'),
+                        "manufacturer": multiple_products[0].get('manufacturer'),
+                        "product_index": multiple_products[0].get('product_index', 1),
+                        "section_text": multiple_products[0].get('section_text', ''),
+                        "total_products_detected": len(multiple_products),
+                        "has_multiple_products": True,
+                        "_products_list": multiple_products
+                    }
+                else:
+                    # Single product processing
+                    structured_data = self._parse_product_data_from_text(raw_text)
+                    structured_data["has_multiple_products"] = False
             
             result["structured_data"] = structured_data
             
@@ -436,14 +582,11 @@ class OpenAIOCRService:
                 print(f"🔧 EXCEL: FORCING MULTI-PRODUCT from {len(product_rows)} product rows")
                 multiple_products = []
                 for i, product_row in enumerate(product_rows):
-                    product_data = self._parse_product_data_from_text(product_row)
+                    # Extract all 38 fields from the product row
+                    product_data = self._extract_all_fields_from_excel_row(product_row, raw_text)
                     if product_data:
                         product_data['product_index'] = i + 1
                         product_data['section_text'] = product_row
-                        # アニメグッズの追加情報
-                        product_data['category'] = 'アニメグッズ'
-                        product_data['brand'] = '株式会社エンスカイ'
-                        product_data['manufacturer'] = '株式会社エンスカイ'
                         multiple_products.append(product_data)
                         print(f"   ✅ Excel Product {i+1}: {product_data.get('product_name', 'Unknown')}")
             
@@ -464,22 +607,64 @@ class OpenAIOCRService:
                     "total_products_detected": len(multiple_products),
                     "has_multiple_products": True
                 }
-                # Store complete product list for processor
-                parsed_structured_data["_products_list"] = [
-                    {
+                # Store complete product list for processor with all 38 fields
+                parsed_structured_data["_products_list"] = []
+                for i, p in enumerate(multiple_products):
+                    product_dict = {
+                        # Core fields
                         "product_name": p.get('product_name'),
-                        "sku": p.get('sku'),
                         "jan_code": p.get('jan_code'),
-                        "price": p.get('price'),
+                        "description": p.get('description'),
+                        
+                        # 38 Company-Specified Fields
+                        "lot_number": p.get('lot_number'),
+                        "classification": p.get('classification'),
+                        "major_category": p.get('major_category'),
+                        "minor_category": p.get('minor_category'),
                         "release_date": p.get('release_date'),
+                        "product_code": p.get('product_code') or p.get('sku'),
+                        "in_store": p.get('in_store'),
+                        "genre_name": p.get('genre_name'),
+                        "supplier_name": p.get('supplier_name'),
+                        "ip_name": p.get('ip_name'),
+                        "character_name": p.get('character_name'),
+                        "reference_sales_price": p.get('reference_sales_price'),
+                        "wholesale_price": p.get('wholesale_price') or p.get('price'),
+                        "wholesale_quantity": p.get('wholesale_quantity'),
+                        "stock": p.get('stock'),
+                        "order_amount": p.get('order_amount'),
+                        "quantity_per_pack": p.get('quantity_per_pack'),
+                        "reservation_release_date": p.get('reservation_release_date'),
+                        "reservation_deadline": p.get('reservation_deadline'),
+                        "reservation_shipping_date": p.get('reservation_shipping_date'),
+                        "case_pack_quantity": p.get('case_pack_quantity'),
+                        "single_product_size": p.get('single_product_size'),
+                        "inner_box_size": p.get('inner_box_size'),
+                        "carton_size": p.get('carton_size'),
+                        "inner_box_gtin": p.get('inner_box_gtin'),
+                        "outer_box_gtin": p.get('outer_box_gtin'),
+                        "protective_film_material": p.get('protective_film_material'),
+                        "country_of_origin": p.get('country_of_origin'),
+                        "target_age": p.get('target_age'),
+                        "image1": p.get('image1'),
+                        "image2": p.get('image2'),
+                        "image3": p.get('image3'),
+                        "image4": p.get('image4'),
+                        "image5": p.get('image5'),
+                        "image6": p.get('image6'),
+                        
+                        # Legacy fields
+                        "sku": p.get('sku'),
+                        "price": p.get('price'),
                         "category": p.get('category'),
                         "brand": p.get('brand'),
                         "manufacturer": p.get('manufacturer'),
+                        
+                        # Meta fields
                         "product_index": p.get('product_index', i+1),
                         "section_text": p.get('section_text', '')
                     }
-                    for i, p in enumerate(multiple_products)
-                ]
+                    parsed_structured_data["_products_list"].append(product_dict)
                 
                 # Log all detected products
                 print("🏷️ ALL DETECTED PRODUCTS:")
@@ -944,6 +1129,141 @@ CRITICAL RULES:
         if outer_gtin:
             structured_data['outer_box_gtin'] = outer_gtin
             print(f"✅ 外箱GTIN: {outer_gtin}")
+        
+        # === 追加の38項目フィールド ===
+        
+        # 24. ロット番号 (Lot Number)
+        lot_number = self._extract_lot_number(raw_text)
+        if lot_number:
+            structured_data['lot_number'] = lot_number
+            print(f"✅ ロット番号: {lot_number}")
+        
+        # 25. 区分 (Classification)
+        classification = self._extract_classification(raw_text)
+        if classification:
+            structured_data['classification'] = classification
+            print(f"✅ 区分: {classification}")
+        
+        # 26. 大分類 (Major Category)
+        major_category = self._extract_major_category(raw_text, text_lines)
+        if major_category:
+            structured_data['major_category'] = major_category
+            print(f"✅ 大分類: {major_category}")
+        
+        # 27. 中分類 (Minor Category)
+        minor_category = self._extract_minor_category(raw_text, text_lines)
+        if minor_category:
+            structured_data['minor_category'] = minor_category
+            print(f"✅ 中分類: {minor_category}")
+        
+        # 28. 商品番号 (Product Code) - SKUと同じ場合がある
+        product_code = self._extract_product_code(raw_text, text_lines)
+        if product_code:
+            structured_data['product_code'] = product_code
+            print(f"✅ 商品番号: {product_code}")
+        
+        # 29. インストア (In-Store)
+        in_store = self._extract_in_store(raw_text)
+        if in_store:
+            structured_data['in_store'] = in_store
+            print(f"✅ インストア: {in_store}")
+        
+        # 30. ジャンル名称 (Genre Name)
+        genre_name = self._extract_genre_name(raw_text, text_lines)
+        if genre_name:
+            structured_data['genre_name'] = genre_name
+            print(f"✅ ジャンル名称: {genre_name}")
+        
+        # 31. 仕入先 (Supplier Name)
+        supplier_name = self._extract_supplier_name(raw_text)
+        if supplier_name:
+            structured_data['supplier_name'] = supplier_name
+            print(f"✅ 仕入先: {supplier_name}")
+        
+        # 32. メーカー名称 (IP Name) - IP名として使用
+        ip_name = self._extract_ip_name(raw_text, cleaned_lines)
+        if ip_name:
+            structured_data['ip_name'] = ip_name
+            print(f"✅ メーカー名称: {ip_name}")
+        
+        # 33. キャラクター名 (Character Name)
+        character_name = self._extract_character_name(raw_text, text_lines)
+        if character_name:
+            structured_data['character_name'] = character_name
+            print(f"✅ キャラクター名: {character_name}")
+        
+        # 34. 参考販売価格 (Reference Sales Price)
+        reference_sales_price = self._extract_reference_sales_price(raw_text)
+        if reference_sales_price:
+            structured_data['reference_sales_price'] = reference_sales_price
+            print(f"✅ 参考販売価格: {reference_sales_price}")
+        
+        # 35. 卸単価（抜） (Wholesale Price)
+        wholesale_price = self._extract_wholesale_price(raw_text)
+        if wholesale_price:
+            structured_data['wholesale_price'] = wholesale_price
+            print(f"✅ 卸単価: {wholesale_price}")
+        
+        # 36. 卸可能数 (Wholesale Quantity)
+        wholesale_quantity = self._extract_wholesale_quantity(raw_text)
+        if wholesale_quantity:
+            structured_data['wholesale_quantity'] = wholesale_quantity
+            print(f"✅ 卸可能数: {wholesale_quantity}")
+        
+        # 37. 発注金額 (Order Amount)
+        order_amount = self._extract_order_amount(raw_text)
+        if order_amount:
+            structured_data['order_amount'] = order_amount
+            print(f"✅ 発注金額: {order_amount}")
+        
+        # 38. 予約解禁日 (Reservation Release Date)
+        reservation_release_date = self._extract_reservation_release_date(raw_text)
+        if reservation_release_date:
+            structured_data['reservation_release_date'] = reservation_release_date
+            print(f"✅ 予約解禁日: {reservation_release_date}")
+        
+        # 39. 予約締め切り日 (Reservation Deadline)
+        reservation_deadline = self._extract_reservation_deadline(raw_text)
+        if reservation_deadline:
+            structured_data['reservation_deadline'] = reservation_deadline
+            print(f"✅ 予約締め切り日: {reservation_deadline}")
+        
+        # 40. 予約商品発送予定日 (Reservation Shipping Date)
+        reservation_shipping_date = self._extract_reservation_shipping_date(raw_text)
+        if reservation_shipping_date:
+            structured_data['reservation_shipping_date'] = reservation_shipping_date
+            print(f"✅ 予約商品発送予定日: {reservation_shipping_date}")
+        
+        # 41. ケース梱入数 (Case Pack Quantity)
+        case_pack_quantity = self._extract_case_pack_quantity(raw_text)
+        if case_pack_quantity:
+            structured_data['case_pack_quantity'] = case_pack_quantity
+            print(f"✅ ケース梱入数: {case_pack_quantity}")
+        
+        # 42. 単品サイズ (Single Product Size)
+        single_product_size = self._extract_single_product_size(raw_text, text_lines)
+        if single_product_size:
+            structured_data['single_product_size'] = single_product_size
+            print(f"✅ 単品サイズ: {single_product_size}")
+        
+        # 43. 機材フィルム (Protective Film Material)
+        protective_film = self._extract_protective_film_material(raw_text)
+        if protective_film:
+            structured_data['protective_film_material'] = protective_film
+            print(f"✅ 機材フィルム: {protective_film}")
+        
+        # 44. 原産国 (Country of Origin) - より強化された抽出
+        country_of_origin = self._extract_country_of_origin(raw_text, text_lines)
+        if country_of_origin:
+            structured_data['country_of_origin'] = country_of_origin
+            print(f"✅ 原産国: {country_of_origin}")
+        
+        # 45-50. 画像URL (Image 1-6)
+        for i in range(1, 7):
+            image_url = self._extract_image_url(raw_text, i)
+            if image_url:
+                structured_data[f'image{i}'] = image_url
+                print(f"✅ 画像{i}: {image_url}")
         
         return structured_data
     
@@ -2181,25 +2501,13 @@ CRITICAL RULES:
         return None
     
     def _extract_quantity_per_pack(self, raw_text: str, text_lines: list) -> str:
-        """入数を抽出（改良版）"""
+        """入数を抽出"""
         quantity_patterns = [
-            r'入数[：:\s]*(\d+)\s*個',
-            r'入数[：:\s]*(\d+)\s*パック',
-            r'入数[：:\s]*(\d+)\s*ピース',
-            r'入数[：:\s]*(\d+)\s*点',
             r'入数[：:\s]*(\d+)',
+            r'入り数[：:\s]*(\d+)',
+            r'ケース入数[：:\s]*(\d+)',
             r'(\d+)\s*個入り',
-            r'(\d+)\s*パック入り',
-            r'(\d+)\s*ピース入り',
-            r'(\d+)\s*点入り',
-            r'Quantity[：:\s]*(\d+)',
-            r'Pack\s*of\s*(\d+)',
-            r'(\d+)\s*pcs',
-            r'(\d+)\s*pieces',
-            r'セット数[：:\s]*(\d+)',
-            r'(\d+)\s*セット',
-            r'内容量[：:\s]*(\d+)\s*個',
-            r'内容物[：:\s]*(\d+)\s*個',
+            r'(\d+)\s*個\/ケース',
         ]
         
         for pattern in quantity_patterns:
@@ -2207,19 +2515,7 @@ CRITICAL RULES:
             if match:
                 quantity = match.group(1)
                 if quantity.isdigit():
-                    qty_num = int(quantity)
-                    if 1 <= qty_num <= 10000:  # 妥当な数量範囲
-                        return quantity
-        
-        # 商品名や説明から数量を推測
-        if '全' in raw_text and '種' in raw_text:
-            all_types_match = re.search(r'全(\d+)種', raw_text)
-            if all_types_match:
-                return all_types_match.group(1)
-        
-        # デフォルト値を設定（単品商品の場合）
-        if any(keyword in raw_text for keyword in ['コインバンク', '貯金箱', 'フィギュア']):
-            return "1"  # 単品商品
+                    return quantity
         
         return None
     
@@ -2674,3 +2970,566 @@ CRITICAL RULES:
         
         print(f"   ✅ Clean data created for {st_code}: {clean_data['product_name']} JAN: {clean_data['jan_code']}")
         return clean_data
+    
+    def _extract_package_size(self, raw_text: str, text_lines: list) -> str:
+        """パッケージサイズを抽出"""
+        package_patterns = [
+            r'パッケージサイズ[：:\s]*([^\n\r]+)',
+            r'Package\s*Size[：:\s]*([^\n\r]+)',
+            r'箱サイズ[：:\s]*([^\n\r]+)',
+            r'外箱サイズ[：:\s]*([^\n\r]+)',
+        ]
+        
+        for pattern in package_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                size_text = match.group(1).strip()
+                if len(size_text) < 100 and any(char.isdigit() for char in size_text):
+                    return size_text
+        
+        return None
+    
+    def _extract_inner_box_size(self, raw_text: str, text_lines: list) -> str:
+        """内箱サイズを抽出"""
+        inner_box_patterns = [
+            r'内箱サイズ[：:\s]*([^\n\r]+)',
+            r'Inner\s*Box\s*Size[：:\s]*([^\n\r]+)',
+            r'ケースサイズ[：:\s]*([^\n\r]+)',
+        ]
+        
+        for pattern in inner_box_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                size_text = match.group(1).strip()
+                if len(size_text) < 100 and any(char.isdigit() for char in size_text):
+                    return size_text
+        
+        return None
+    
+    def _extract_carton_size(self, raw_text: str, text_lines: list) -> str:
+        """カートンサイズを抽出"""
+        carton_patterns = [
+            r'カートンサイズ[：:\s]*([^\n\r]+)',
+            r'Carton\s*Size[：:\s]*([^\n\r]+)',
+            r'外装サイズ[：:\s]*([^\n\r]+)',
+            r'段ボールサイズ[：:\s]*([^\n\r]+)',
+        ]
+        
+        for pattern in carton_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                size_text = match.group(1).strip()
+                if len(size_text) < 100 and any(char.isdigit() for char in size_text):
+                    return size_text
+        
+        return None
+    
+    def _extract_package_type(self, raw_text: str, text_lines: list) -> str:
+        """パッケージ形態を抽出"""
+        package_type_patterns = [
+            r'パッケージ形態[：:\s]*([^\n\r]+)',
+            r'Package\s*Type[：:\s]*([^\n\r]+)',
+            r'包装形態[：:\s]*([^\n\r]+)',
+            r'梱包形態[：:\s]*([^\n\r]+)',
+            r'パッケージ[：:\s]*([^\n\r]+)',
+        ]
+        
+        for pattern in package_type_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                package_text = match.group(1).strip()
+                if len(package_text) < 100:
+                    return package_text
+        
+        return None
+    
+    # ========== 追加の38項目抽出メソッド ==========
+    
+    def _extract_lot_number(self, raw_text: str) -> str:
+        """ロット番号を抽出"""
+        lot_patterns = [
+            r'ロット[番]?[号]?[：:\s]*([A-Z0-9\-]+)',
+            r'Lot\s*(?:No\.?|Number)[：:\s]*([A-Z0-9\-]+)',
+            r'LOT[：:\s]*([A-Z0-9\-]+)',
+        ]
+        for pattern in lot_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return None
+    
+    def _extract_classification(self, raw_text: str) -> str:
+        """区分を抽出"""
+        classification_patterns = [
+            r'区分[：:\s]*([^\n\r,]+)',
+            r'分類[：:\s]*([^\n\r,]+)',
+            r'Classification[：:\s]*([^\n\r,]+)',
+        ]
+        for pattern in classification_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                class_text = match.group(1).strip()
+                if len(class_text) < 50:
+                    return class_text
+        return None
+    
+    def _extract_major_category(self, raw_text: str, text_lines: list) -> str:
+        """大分類を抽出"""
+        major_patterns = [
+            r'大分類[：:\s]*([^\n\r,]+)',
+            r'Main\s*Category[：:\s]*([^\n\r,]+)',
+            r'Primary\s*Category[：:\s]*([^\n\r,]+)',
+        ]
+        for pattern in major_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                category_text = match.group(1).strip()
+                if len(category_text) < 50:
+                    return category_text
+        return None
+    
+    def _extract_minor_category(self, raw_text: str, text_lines: list) -> str:
+        """中分類を抽出"""
+        minor_patterns = [
+            r'中分類[：:\s]*([^\n\r,]+)',
+            r'Sub\s*Category[：:\s]*([^\n\r,]+)',
+            r'Secondary\s*Category[：:\s]*([^\n\r,]+)',
+        ]
+        for pattern in minor_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                category_text = match.group(1).strip()
+                if len(category_text) < 50:
+                    return category_text
+        return None
+    
+    def _extract_product_code(self, raw_text: str, text_lines: list) -> str:
+        """商品番号を抽出（SKUと似ているが別の場合がある）"""
+        product_code_patterns = [
+            r'商品番号[：:\s]*([A-Z0-9\-]+)',
+            r'品番[：:\s]*([A-Z0-9\-]+)',
+            r'Product\s*(?:Code|No\.?|Number)[：:\s]*([A-Z0-9\-]+)',
+            r'Item\s*(?:Code|No\.?|Number)[：:\s]*([A-Z0-9\-]+)',
+        ]
+        for pattern in product_code_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                code = match.group(1).strip()
+                if 3 <= len(code) <= 30:
+                    return code
+        return None
+    
+    def _extract_in_store(self, raw_text: str) -> str:
+        """インストア情報を抽出"""
+        in_store_patterns = [
+            r'インストア[：:\s]*([^\n\r,]+)',
+            r'In[-\s]?Store[：:\s]*([^\n\r,]+)',
+        ]
+        for pattern in in_store_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                in_store_text = match.group(1).strip()
+                if len(in_store_text) < 50:
+                    return in_store_text
+        return None
+    
+    def _extract_genre_name(self, raw_text: str, text_lines: list) -> str:
+        """ジャンル名称を抽出"""
+        genre_patterns = [
+            r'ジャンル名称[：:\s]*([^\n\r,]+)',
+            r'ジャンル[：:\s]*([^\n\r,]+)',
+            r'Genre[：:\s]*([^\n\r,]+)',
+        ]
+        for pattern in genre_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                genre_text = match.group(1).strip()
+                if len(genre_text) < 100:
+                    return genre_text
+        return None
+    
+    def _extract_supplier_name(self, raw_text: str) -> str:
+        """仕入先を抽出"""
+        supplier_patterns = [
+            r'仕入先[：:\s]*([^\n\r,]+)',
+            r'仕入れ先[：:\s]*([^\n\r,]+)',
+            r'Supplier[：:\s]*([^\n\r,]+)',
+            r'Vendor[：:\s]*([^\n\r,]+)',
+        ]
+        for pattern in supplier_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                supplier_text = match.group(1).strip()
+                if len(supplier_text) < 100:
+                    return supplier_text
+        return None
+    
+    def _extract_ip_name(self, raw_text: str, cleaned_lines: list) -> str:
+        """メーカー名称（IP名）を抽出"""
+        ip_patterns = [
+            r'メーカー名称[：:\s]*([^\n\r,]+)',
+            r'IP名[：:\s]*([^\n\r,]+)',
+            r'Manufacturer\s*Name[：:\s]*([^\n\r,]+)',
+        ]
+        for pattern in ip_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                ip_text = match.group(1).strip()
+                if len(ip_text) < 100:
+                    return ip_text
+        return None
+    
+    def _extract_character_name(self, raw_text: str, text_lines: list) -> str:
+        """キャラクター名（IP名）を抽出"""
+        character_patterns = [
+            r'キャラクター名\s*\(IP名\)[：:\s]*([^\n\r,]+)',
+            r'キャラクター名[：:\s]*([^\n\r,]+)',
+            r'Character\s*Name[：:\s]*([^\n\r,]+)',
+        ]
+        for pattern in character_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                char_text = match.group(1).strip()
+                if len(char_text) < 100:
+                    return char_text
+        return None
+    
+    def _extract_reference_sales_price(self, raw_text: str) -> float:
+        """参考販売価格を抽出"""
+        price_patterns = [
+            r'参考販売価格[：:\s]*[¥￥]?\s*([0-9,]+)',
+            r'希望小売価格[：:\s]*[¥￥]?\s*([0-9,]+)',
+            r'Reference\s*Price[：:\s]*[¥￥$]?\s*([0-9,]+)',
+        ]
+        for pattern in price_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                price_str = match.group(1).replace(',', '')
+                try:
+                    price = float(price_str)
+                    if 0 < price < 1000000:
+                        return price
+                except ValueError:
+                    continue
+        return None
+    
+    def _extract_wholesale_price(self, raw_text: str) -> float:
+        """卸単価（抜）を抽出"""
+        wholesale_patterns = [
+            r'卸単価[：:\s]*[¥￥]?\s*([0-9,]+)',
+            r'卸価格[：:\s]*[¥￥]?\s*([0-9,]+)',
+            r'Wholesale\s*Price[：:\s]*[¥￥$]?\s*([0-9,]+)',
+        ]
+        for pattern in wholesale_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                price_str = match.group(1).replace(',', '')
+                try:
+                    price = float(price_str)
+                    if 0 < price < 1000000:
+                        return price
+                except ValueError:
+                    continue
+        return None
+    
+    def _extract_wholesale_quantity(self, raw_text: str) -> int:
+        """卸可能数を抽出"""
+        quantity_patterns = [
+            r'卸可能数[：:\s]*([0-9,]+)',
+            r'卸し可能数[：:\s]*([0-9,]+)',
+            r'Available\s*Quantity[：:\s]*([0-9,]+)',
+        ]
+        for pattern in quantity_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                qty_str = match.group(1).replace(',', '')
+                try:
+                    qty = int(qty_str)
+                    if 0 <= qty < 1000000:
+                        return qty
+                except ValueError:
+                    continue
+        return None
+    
+    def _extract_order_amount(self, raw_text: str) -> float:
+        """発注金額を抽出"""
+        amount_patterns = [
+            r'発注金額[：:\s]*[¥￥]?\s*([0-9,]+)',
+            r'注文金額[：:\s]*[¥￥]?\s*([0-9,]+)',
+            r'Order\s*Amount[：:\s]*[¥￥$]?\s*([0-9,]+)',
+        ]
+        for pattern in amount_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                amount_str = match.group(1).replace(',', '')
+                try:
+                    amount = float(amount_str)
+                    if 0 < amount < 10000000:
+                        return amount
+                except ValueError:
+                    continue
+        return None
+    
+    def _extract_reservation_release_date(self, raw_text: str) -> str:
+        """予約解禁日を抽出"""
+        date_patterns = [
+            r'予約解禁日[：:\s]*([0-9年月日/\-\.]+)',
+            r'Reservation\s*Start\s*Date[：:\s]*([0-9/\-\.]+)',
+        ]
+        for pattern in date_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                date_text = match.group(1).strip()
+                if len(date_text) < 30:
+                    return date_text
+        return None
+    
+    def _extract_reservation_deadline(self, raw_text: str) -> str:
+        """予約締め切り日を抽出"""
+        date_patterns = [
+            r'予約締[め]?切[り]?日[：:\s]*([0-9年月日/\-\.]+)',
+            r'Reservation\s*Deadline[：:\s]*([0-9/\-\.]+)',
+        ]
+        for pattern in date_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                date_text = match.group(1).strip()
+                if len(date_text) < 30:
+                    return date_text
+        return None
+    
+    def _extract_reservation_shipping_date(self, raw_text: str) -> str:
+        """予約商品発送予定日を抽出"""
+        date_patterns = [
+            r'予約商品発送予定日[：:\s]*([0-9年月日/\-\.]+)',
+            r'発送予定日[：:\s]*([0-9年月日/\-\.]+)',
+            r'Shipping\s*Date[：:\s]*([0-9/\-\.]+)',
+        ]
+        for pattern in date_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                date_text = match.group(1).strip()
+                if len(date_text) < 30:
+                    return date_text
+        return None
+    
+    def _extract_case_pack_quantity(self, raw_text: str) -> int:
+        """ケース梱入数を抽出"""
+        case_patterns = [
+            r'ケース梱入数[：:\s]*([0-9,]+)',
+            r'ケース入数[：:\s]*([0-9,]+)',
+            r'Case\s*Pack\s*Quantity[：:\s]*([0-9,]+)',
+        ]
+        for pattern in case_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                qty_str = match.group(1).replace(',', '')
+                try:
+                    qty = int(qty_str)
+                    if 0 < qty < 10000:
+                        return qty
+                except ValueError:
+                    continue
+        return None
+    
+    def _extract_single_product_size(self, raw_text: str, text_lines: list) -> str:
+        """単品サイズを抽出"""
+        size_patterns = [
+            r'単品サイズ[：:\s]*([^\n\r]+)',
+            r'Single\s*Product\s*Size[：:\s]*([^\n\r]+)',
+            r'個別サイズ[：:\s]*([^\n\r]+)',
+        ]
+        for pattern in size_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                size_text = match.group(1).strip()
+                if len(size_text) < 100 and any(char.isdigit() for char in size_text):
+                    return size_text
+        return None
+    
+    def _extract_protective_film_material(self, raw_text: str) -> str:
+        """機材フィルムを抽出"""
+        film_patterns = [
+            r'機材フィルム[：:\s]*([^\n\r,]+)',
+            r'保護フィルム[：:\s]*([^\n\r,]+)',
+            r'Protective\s*Film[：:\s]*([^\n\r,]+)',
+        ]
+        for pattern in film_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                film_text = match.group(1).strip()
+                if len(film_text) < 100:
+                    return film_text
+        return None
+    
+    def _extract_country_of_origin(self, raw_text: str, text_lines: list) -> str:
+        """原産国を抽出（より強化版）"""
+        # 既存のoriginメソッドを再利用し、より具体的なパターンを追加
+        origin_patterns = [
+            r'原産国[：:\s]*([^\n\r,]+)',
+            r'製造国[：:\s]*([^\n\r,]+)',
+            r'生産国[：:\s]*([^\n\r,]+)',
+            r'Country\s*of\s*Origin[：:\s]*([^\n\r,]+)',
+            r'Made\s*in[：:\s]*([A-Z][a-z]+)',
+        ]
+        for pattern in origin_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                origin_text = match.group(1).strip()
+                if len(origin_text) < 50:
+                    return origin_text
+        return None
+    
+    def _extract_image_url(self, raw_text: str, image_number: int) -> str:
+        """画像URLを抽出"""
+        url_patterns = [
+            rf'画像{image_number}[：:\s]*(https?://[^\s\n\r]+)',
+            rf'Image\s*{image_number}[：:\s]*(https?://[^\s\n\r]+)',
+            rf'img{image_number}[：:\s]*(https?://[^\s\n\r]+)',
+        ]
+        for pattern in url_patterns:
+            match = re.search(pattern, raw_text, re.IGNORECASE)
+            if match:
+                url = match.group(1).strip()
+                if url.startswith('http'):
+                    return url
+        return None
+
+    def _extract_all_fields_from_excel_row(self, row_text: str, full_text: str = "") -> Dict[str, Any]:
+        """Excel行から38項目すべてを抽出"""
+        print(f"🔍 Extracting all 38 fields from Excel row: {row_text[:100]}")
+        
+        product_data = {}
+        
+        # 1. 基本情報の抽出
+        # SKU/商品コード (EN-XXXX)
+        sku_match = re.search(r'(EN-\d+)', row_text)
+        if sku_match:
+            product_data['sku'] = sku_match.group(1)
+            product_data['product_code'] = sku_match.group(1)
+        
+        # JANコード (4970381-XXXXXX or 13桁)
+        jan_patterns = [
+            r'4970381-?(\d{6})',  # エンスカイのJANコード
+            r'(\d{13})',          # 標準13桁
+            r'(\d{8})',           # 8桁
+        ]
+        for pattern in jan_patterns:
+            jan_match = re.search(pattern, row_text)
+            if jan_match:
+                jan_code = jan_match.group(0).replace('-', '')
+                if len(jan_code) >= 8:
+                    product_data['jan_code'] = jan_code
+                    break
+        
+        # 価格 (¥X,XXX or Xパック X,XXX円)
+        price_patterns = [
+            r'[¥￥]?\s*(\d{1,3}(?:,\d{3})+)\s*円',
+            r'(\d{1,3}(?:,\d{3})+)\s*円',
+            r'[¥￥]\s*(\d+)',
+        ]
+        for pattern in price_patterns:
+            price_match = re.search(pattern, row_text)
+            if price_match:
+                price_str = price_match.group(1).replace(',', '')
+                try:
+                    price_num = int(price_str)
+                    if 100 <= price_num <= 100000:
+                        product_data['price'] = str(price_num)
+                        product_data['wholesale_price'] = price_num
+                        product_data['reference_sales_price'] = price_num
+                        break
+                except ValueError:
+                    continue
+        
+        # 商品名 (キャラクタースリーブ『XXX』YYY)
+        product_name_patterns = [
+            r'キャラクタースリーブ[『「]([^』」]+)[』」]\s*([^\(|]+)',
+            r'([^|]+)\(EN-\d+\)',
+        ]
+        for pattern in product_name_patterns:
+            name_match = re.search(pattern, row_text)
+            if name_match:
+                if len(name_match.groups()) >= 2:
+                    product_data['product_name'] = f"{name_match.group(1)} {name_match.group(2)}".strip()
+                else:
+                    product_data['product_name'] = name_match.group(1).strip()
+                break
+        
+        # カートン入数
+        carton_patterns = [
+            r'(\d+)入\s*\((\d+)パック[×x](\d+)BOX\)',
+            r'カートン入数[：:\s]*(\d+)',
+        ]
+        for pattern in carton_patterns:
+            carton_match = re.search(pattern, row_text)
+            if carton_match:
+                if len(carton_match.groups()) >= 3:
+                    total = int(carton_match.group(1))
+                    product_data['case_pack_quantity'] = total
+                else:
+                    product_data['case_pack_quantity'] = int(carton_match.group(1))
+                break
+        
+        # 2. カテゴリとブランド情報
+        # Excelファイルから推測
+        if 'キャラクタースリーブ' in row_text or 'スリーブ' in row_text:
+            product_data['category'] = 'トレーディングカードアクセサリー'
+            product_data['major_category'] = 'ホビー・トイ'
+            product_data['minor_category'] = 'トレーディングカードグッズ'
+            product_data['genre_name'] = 'キャラクターグッズ'
+        
+        # ブランド情報（全テキストから抽出）
+        if 'エンスカイ' in full_text or 'EN-' in row_text:
+            product_data['brand'] = 'エンスカイ'
+            product_data['manufacturer'] = '株式会社エンスカイ'
+            product_data['ip_name'] = 'エンスカイ'
+            product_data['supplier_name'] = '株式会社エンスカイ'
+        
+        # 3. 作品名からキャラクター情報を抽出
+        character_match = re.search(r'[『「]([^』」]+)[』」]', row_text)
+        if character_match:
+            work_name = character_match.group(1)
+            product_data['character_name'] = work_name
+        
+        # 4. その他の項目（Excelに存在する場合）
+        # 発売日
+        date_patterns = [
+            r'(\d{4})[年/-](\d{1,2})[月/-](\d{1,2})',
+            r'(\d{4})/(\d{1,2})/(\d{1,2})',
+        ]
+        for pattern in date_patterns:
+            date_match = re.search(pattern, row_text)
+            if date_match:
+                year, month, day = date_match.groups()
+                product_data['release_date'] = f"{year}/{month.zfill(2)}/{day.zfill(2)}"
+                break
+        
+        # 商品説明（商品名から生成）
+        if product_data.get('product_name'):
+            product_data['description'] = f"『{product_data.get('character_name', '')}』の{product_data.get('product_name', '')}です。" if product_data.get('character_name') else product_data.get('product_name', '')
+        
+        # 5. デフォルト値の設定（日本製が多い）
+        product_data['country_of_origin'] = product_data.get('country_of_origin', '日本')
+        
+        # 6. 在庫・注文関連（Excelにない場合は空）
+        product_data['stock'] = product_data.get('stock')
+        product_data['wholesale_quantity'] = product_data.get('wholesale_quantity')
+        product_data['order_amount'] = product_data.get('order_amount')
+        
+        # 7. サイズ情報（Excelから抽出できる場合）
+        size_match = re.search(r'(\d+)\s*[×x]\s*(\d+)\s*[×x]?\s*(\d+)?\s*mm', row_text)
+        if size_match:
+            w, h, d = size_match.groups()
+            if d:
+                product_data['single_product_size'] = f"{w}×{h}×{d}mm"
+            else:
+                product_data['single_product_size'] = f"{w}×{h}mm"
+        
+        # 8. その他の38項目フィールド（必要に応じて抽出）
+        # lot_number, classification, in_store, reservation_*, inner_box_size, carton_size,
+        # inner_box_gtin, outer_box_gtin, protective_film_material, target_age, image1-6
+        # これらはExcelに存在する場合のみ抽出
+        
+        print(f"✅ Extracted {len([k for k, v in product_data.items() if v])} fields from Excel row")
+        return product_data

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.responses import StreamingResponse
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime
 import csv
@@ -11,6 +11,86 @@ from app.models.user_mongo import User
 from app.models.extracted_data_mongo import ExtractedData
 
 router = APIRouter()
+
+
+def convert_extracted_data_to_dict(item: ExtractedData) -> Dict[str, Any]:
+    """Convert ExtractedData model to dictionary with all 38 fields for frontend."""
+    return {
+        "id": str(item.id),
+        "productName": item.product_name or f"File_{item.uploaded_file_id[:8]}" if item.uploaded_file_id else "Unknown",
+        
+        # Legacy fields
+        "sku": item.sku,
+        "price": item.price,
+        "stock": item.stock,
+        "category": item.category,
+        "description": item.description,
+        "brand": getattr(item, 'brand', None),
+        "manufacturer": getattr(item, 'manufacturer', None),
+        "weight": getattr(item, 'weight', None),
+        "color": getattr(item, 'color', None),
+        "material": getattr(item, 'material', None),
+        "origin": getattr(item, 'origin', None),
+        "warranty": getattr(item, 'warranty', None),
+        "dimensions": getattr(item, 'dimensions', None),
+        "specifications": getattr(item, 'specifications', None),
+        
+        # 38 Company-Specified Fields
+        "lot_number": getattr(item, 'lot_number', None),
+        "classification": getattr(item, 'classification', None),
+        "major_category": getattr(item, 'major_category', None),
+        "minor_category": getattr(item, 'minor_category', None),
+        "release_date": getattr(item, 'release_date', None),
+        "jan_code": getattr(item, 'jan_code', None),
+        "product_code": getattr(item, 'product_code', None),
+        "in_store": getattr(item, 'in_store', None),
+        "genre_name": getattr(item, 'genre_name', None),
+        "supplier_name": getattr(item, 'supplier_name', None),
+        "ip_name": getattr(item, 'ip_name', None),
+        "character_name": getattr(item, 'character_name', None),
+        "reference_sales_price": getattr(item, 'reference_sales_price', None),
+        "wholesale_price": getattr(item, 'wholesale_price', None),
+        "wholesale_quantity": getattr(item, 'wholesale_quantity', None),
+        "order_amount": getattr(item, 'order_amount', None),
+        "quantity_per_pack": getattr(item, 'quantity_per_pack', None),
+        "reservation_release_date": getattr(item, 'reservation_release_date', None),
+        "reservation_deadline": getattr(item, 'reservation_deadline', None),
+        "reservation_shipping_date": getattr(item, 'reservation_shipping_date', None),
+        "case_pack_quantity": getattr(item, 'case_pack_quantity', None),
+        "single_product_size": getattr(item, 'single_product_size', None),
+        "inner_box_size": getattr(item, 'inner_box_size', None),
+        "carton_size": getattr(item, 'carton_size', None),
+        "inner_box_gtin": getattr(item, 'inner_box_gtin', None),
+        "outer_box_gtin": getattr(item, 'outer_box_gtin', None),
+        "protective_film_material": getattr(item, 'protective_film_material', None),
+        "country_of_origin": getattr(item, 'country_of_origin', None),
+        "target_age": getattr(item, 'target_age', None),
+        "image1": getattr(item, 'image1', None),
+        "image2": getattr(item, 'image2', None),
+        "image3": getattr(item, 'image3', None),
+        "image4": getattr(item, 'image4', None),
+        "image5": getattr(item, 'image5', None),
+        "image6": getattr(item, 'image6', None),
+        
+        # System fields
+        "confidence_score": item.confidence_score,
+        "status": item.status,
+        "rawText": item.raw_text[:200] + "..." if item.raw_text and len(item.raw_text) > 200 else item.raw_text,
+        "uploadedFileId": item.uploaded_file_id,
+        "conversionJobId": item.conversion_job_id,
+        "folderName": getattr(item, 'folder_name', None),
+        "extractedAt": item.created_at.isoformat() if item.created_at else None,
+        "is_validated": getattr(item, 'is_validated', False),
+        "needs_review": getattr(item, 'needs_review', False),
+        "created_at": item.created_at.isoformat() if item.created_at else None,
+        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+        
+        # Multi-product support fields
+        "sourceFileId": getattr(item, 'source_file_id', None),
+        "isMultiProduct": getattr(item, 'is_multi_product', False),
+        "totalProductsInFile": getattr(item, 'total_products_in_file', 1),
+        "productIndex": getattr(item, 'product_index', None),
+    }
 
 # CSV出力用のフォーマット定義
 CSV_FORMATS = {
@@ -328,46 +408,10 @@ async def list_extracted_data(
     print(f"DEBUG: User {current_user.id} requesting data")
     print(f"DEBUG: Found {len(extracted_data)} extracted data items")
     
-    # Convert to frontend format
-    data_list = []
-    for item in extracted_data:
-        data_list.append({
-            "id": str(item.id),
-            "productName": item.product_name or f"File_{item.uploaded_file_id[:8]}" if item.uploaded_file_id else "Unknown",
-            "sku": item.sku,
-            "price": item.price,
-            "stock": item.stock,
-            "category": item.category,
-            "description": item.description,
-            "confidence_score": item.confidence_score,
-            "status": item.status,
-            "rawText": item.raw_text[:200] + "..." if item.raw_text and len(item.raw_text) > 200 else item.raw_text,
-            "uploadedFileId": item.uploaded_file_id,
-            "conversionJobId": item.conversion_job_id,
-            "folderName": getattr(item, 'folder_name', None),
-            "brand": getattr(item, 'brand', None),
-            "manufacturer": getattr(item, 'manufacturer', None),
-            "jan_code": getattr(item, 'jan_code', None),
-            "weight": getattr(item, 'weight', None),
-            "color": getattr(item, 'color', None),
-            "material": getattr(item, 'material', None),
-            "origin": getattr(item, 'origin', None),
-            "warranty": getattr(item, 'warranty', None),
-            "dimensions": getattr(item, 'dimensions', None),
-            "specifications": getattr(item, 'specifications', None),
-            "extractedAt": item.created_at.isoformat() if item.created_at else None,
-            "is_validated": getattr(item, 'is_validated', False),
-            "needs_review": getattr(item, 'needs_review', False),
-            "created_at": item.created_at.isoformat() if item.created_at else None,
-            "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-            # Multi-product support fields
-            "sourceFileId": getattr(item, 'source_file_id', None),
-            "isMultiProduct": getattr(item, 'is_multi_product', False),
-            "totalProductsInFile": getattr(item, 'total_products_in_file', 1),
-            "productIndex": getattr(item, 'product_index', None),
-        })
+    # Convert to frontend format using helper function
+    data_list = [convert_extracted_data_to_dict(item) for item in extracted_data]
     
-    print(f"DEBUG: Returning {len(data_list)} items")
+    print(f"DEBUG: Returning {len(data_list)} items with all 38 fields")
     return {"data": data_list}
 
 
@@ -396,46 +440,10 @@ async def get_user_extracted_data(
     print(f"DEBUG: User {current_user.id} requesting data for user {user_id}")
     print(f"DEBUG: Found {len(extracted_data)} extracted data items for user {user_id}")
     
-    # Convert to frontend format
-    data_list = []
-    for item in extracted_data:
-        data_list.append({
-            "id": str(item.id),
-            "productName": item.product_name or f"File_{item.uploaded_file_id[:8]}" if item.uploaded_file_id else "Unknown",
-            "sku": item.sku,
-            "price": item.price,
-            "stock": item.stock,
-            "category": item.category,
-            "description": item.description,
-            "confidence_score": item.confidence_score,
-            "status": item.status,
-            "rawText": item.raw_text[:200] + "..." if item.raw_text and len(item.raw_text) > 200 else item.raw_text,
-            "uploadedFileId": item.uploaded_file_id,
-            "conversionJobId": item.conversion_job_id,
-            "folderName": getattr(item, 'folder_name', None),
-            "brand": getattr(item, 'brand', None),
-            "manufacturer": getattr(item, 'manufacturer', None),
-            "jan_code": getattr(item, 'jan_code', None),
-            "weight": getattr(item, 'weight', None),
-            "color": getattr(item, 'color', None),
-            "material": getattr(item, 'material', None),
-            "origin": getattr(item, 'origin', None),
-            "warranty": getattr(item, 'warranty', None),
-            "dimensions": getattr(item, 'dimensions', None),
-            "specifications": getattr(item, 'specifications', None),
-            "extractedAt": item.created_at.isoformat() if item.created_at else None,
-            "is_validated": getattr(item, 'is_validated', False),
-            "needs_review": getattr(item, 'needs_review', False),
-            "created_at": item.created_at.isoformat() if item.created_at else None,
-            "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-            # Multi-product support fields
-            "sourceFileId": getattr(item, 'source_file_id', None),
-            "isMultiProduct": getattr(item, 'is_multi_product', False),
-            "totalProductsInFile": getattr(item, 'total_products_in_file', 1),
-            "productIndex": getattr(item, 'product_index', None),
-        })
+    # Convert to frontend format using helper function
+    data_list = [convert_extracted_data_to_dict(item) for item in extracted_data]
     
-    print(f"DEBUG: Returning {len(data_list)} items for user {user_id}")
+    print(f"DEBUG: Returning {len(data_list)} items for user {user_id} with all 38 fields")
     return {"data": data_list}
 
 

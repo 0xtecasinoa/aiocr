@@ -29,7 +29,7 @@ class BillingHistory(Document):
         ]
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "company_id": "507f1f77bcf86cd799439011",
                 "year": 2025,

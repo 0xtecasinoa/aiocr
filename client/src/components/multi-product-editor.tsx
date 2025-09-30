@@ -91,20 +91,47 @@ export default function MultiProductEditor({
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <Table className="min-w-[1400px]">
+                  <Table className="min-w-[3800px]">
                     <TableHeader>
                         <TableRow>
-                          <TableHead className="min-w-[200px]">商品名</TableHead>
-                          <TableHead className="min-w-[100px]">発売予定日</TableHead>
+                          <TableHead className="min-w-[100px]">ロット番号</TableHead>
+                          <TableHead className="min-w-[80px]">区分</TableHead>
+                          <TableHead className="min-w-[100px]">大分類</TableHead>
+                          <TableHead className="min-w-[100px]">中分類</TableHead>
+                          <TableHead className="min-w-[100px]">発売日</TableHead>
                           <TableHead className="min-w-[140px]">JANコード</TableHead>
-                          <TableHead className="min-w-[120px]">希望小売価格(税抜)</TableHead>
+                          <TableHead className="min-w-[120px]">商品番号</TableHead>
+                          <TableHead className="min-w-[100px]">インストア</TableHead>
+                          <TableHead className="min-w-[140px]">ジャンル名称</TableHead>
+                          <TableHead className="min-w-[100px]">仕入先</TableHead>
+                          <TableHead className="min-w-[120px]">メーカー名称</TableHead>
+                          <TableHead className="min-w-[140px]">キャラクター名(IP名)</TableHead>
+                          <TableHead className="min-w-[200px]">商品名称</TableHead>
+                          <TableHead className="min-w-[120px]">参考販売価格</TableHead>
+                          <TableHead className="min-w-[100px]">卸単価（抜）</TableHead>
+                          <TableHead className="min-w-[100px]">卸可能数</TableHead>
+                          <TableHead className="min-w-[80px]">発注数</TableHead>
+                          <TableHead className="min-w-[100px]">発注金額</TableHead>
                           <TableHead className="min-w-[80px]">入数</TableHead>
-                          <TableHead className="min-w-[120px]">商品サイズ</TableHead>
-                          <TableHead className="min-w-[140px]">パッケージサイズ</TableHead>
-                          <TableHead className="min-w-[120px]">内容サイズ</TableHead>
-                          <TableHead className="min-w-[140px]">カートン外装</TableHead>
-                          <TableHead className="min-w-[120px]">パッケージ形態</TableHead>
-                          <TableHead className="min-w-[100px]">商品説明文</TableHead>
+                          <TableHead className="min-w-[100px]">予約解禁日</TableHead>
+                          <TableHead className="min-w-[120px]">予約締め切り日</TableHead>
+                          <TableHead className="min-w-[140px]">予約商品発送予定日</TableHead>
+                          <TableHead className="min-w-[100px]">ケース梱入数</TableHead>
+                          <TableHead className="min-w-[120px]">単品サイズ</TableHead>
+                          <TableHead className="min-w-[120px]">内箱サイズ</TableHead>
+                          <TableHead className="min-w-[120px]">カートンサイズ</TableHead>
+                          <TableHead className="min-w-[120px]">内箱GTIN</TableHead>
+                          <TableHead className="min-w-[120px]">外箱GTIN</TableHead>
+                          <TableHead className="min-w-[150px]">商品説明</TableHead>
+                          <TableHead className="min-w-[100px]">機材フィルム</TableHead>
+                          <TableHead className="min-w-[80px]">原産国</TableHead>
+                          <TableHead className="min-w-[80px]">対象年齢</TableHead>
+                          <TableHead className="min-w-[120px]">画像1</TableHead>
+                          <TableHead className="min-w-[120px]">画像2</TableHead>
+                          <TableHead className="min-w-[120px]">画像3</TableHead>
+                          <TableHead className="min-w-[120px]">画像4</TableHead>
+                          <TableHead className="min-w-[120px]">画像5</TableHead>
+                          <TableHead className="min-w-[120px]">画像6</TableHead>
                           <TableHead className="min-w-[80px]">判定結果</TableHead>
                           <TableHead className="min-w-[80px]">操作</TableHead>
                         </TableRow>
@@ -118,61 +145,44 @@ export default function MultiProductEditor({
                           className="cursor-pointer hover:bg-slate-50 transition-colors"
                           onClick={() => handleProductClick(product)}
                         >
-                          <TableCell className="font-medium">
-                            <div className="min-w-[180px] text-sm" title={product.productName || '未入力'}>
-                              {product.productName || '未入力 (NG)'}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[90px] text-sm">
-                              {(product as any).structured_data?.release_date || (product as any).releaseDate || ''}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[130px] text-sm font-mono" title={product.jan_code || '未入力'}>
-                              {product.jan_code || '未入力 (NG)'}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[110px] text-sm">
-                              {product.price ? `${Number(product.price).toLocaleString()}円(税抜価格${Math.floor(Number(product.price) * 0.91)}円)` : '未入力 (NG)'}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[70px] text-sm">
-                              {product.stock || ''}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[110px] text-sm">
-                              {product.dimensions || (product as any).productSize || ''}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[130px] text-sm">
-                              {(product as any).packageSize || (product as any).package_size || ''}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[110px] text-sm">
-                              {(product as any).contentSize || (product as any).content_size || ''}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[130px] text-sm">
-                              {(product as any).cartonSize || (product as any).carton_size || ''}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[110px] text-sm">
-                              {(product as any).packageType || (product as any).package_type || ''}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="min-w-[90px] text-xs">
-                              {product.description || (product as any).structured_data?.description || '未入力 (NG)'}
-                            </div>
-                          </TableCell>
+                          <TableCell><div className="text-sm">{(product as any).lot_number || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).classification || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).major_category || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).minor_category || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).release_date || ''}</div></TableCell>
+                          <TableCell><div className="text-sm font-mono">{product.jan_code || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).product_code || (product as any).sku || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).in_store || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).genre_name || (product as any).campaign_name || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).supplier_name || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).ip_name || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).character_name || ''}</div></TableCell>
+                          <TableCell className="font-medium"><div className="text-sm">{product.productName || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).reference_sales_price ? `¥${Number((product as any).reference_sales_price).toLocaleString()}` : ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).wholesale_price || product.price ? `¥${Number((product as any).wholesale_price || product.price).toLocaleString()}` : ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).wholesale_quantity || (product as any).sold_out_quantity || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{product.stock || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).order_amount || (product as any).sold_out_amount || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).quantity_per_pack || (product as any).release_date_scheduled || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).reservation_release_date || (product as any).advance_notice_cutoff || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).reservation_deadline || (product as any).scheduled_release_date || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).reservation_shipping_date || (product as any).reserved_release_date || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).case_pack_quantity || (product as any).pack_quantity || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).single_product_size || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).inner_box_size || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).carton_size || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).inner_box_gtin || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).outer_box_gtin || ''}</div></TableCell>
+                          <TableCell><div className="text-xs max-w-[150px] truncate" title={product.description || ''}>{product.description || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).protective_film_material || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).country_of_origin || ''}</div></TableCell>
+                          <TableCell><div className="text-sm">{(product as any).target_age || ''}</div></TableCell>
+                          <TableCell><div className="text-xs truncate max-w-[120px]" title={(product as any).image1 || ''}>{(product as any).image1 || ''}</div></TableCell>
+                          <TableCell><div className="text-xs truncate max-w-[120px]" title={(product as any).image2 || ''}>{(product as any).image2 || ''}</div></TableCell>
+                          <TableCell><div className="text-xs truncate max-w-[120px]" title={(product as any).image3 || ''}>{(product as any).image3 || ''}</div></TableCell>
+                          <TableCell><div className="text-xs truncate max-w-[120px]" title={(product as any).image4 || ''}>{(product as any).image4 || ''}</div></TableCell>
+                          <TableCell><div className="text-xs truncate max-w-[120px]" title={(product as any).image5 || ''}>{(product as any).image5 || ''}</div></TableCell>
+                          <TableCell><div className="text-xs truncate max-w-[120px]" title={(product as any).image6 || ''}>{(product as any).image6 || ''}</div></TableCell>
                           <TableCell>
                             <div className="min-w-[70px]">
                               {getValidationBadge(product)}

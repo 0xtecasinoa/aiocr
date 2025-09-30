@@ -70,23 +70,46 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
   // Initialize form data and find related products
   useEffect(() => {
     if (item && allExtractedData?.data) {
-      // Initialize form data
+      // Initialize form data with all 38 fields
       setFormData({
-        productName: item.productName || '',
-        sku: (item as any).sku || '',
+        lot_number: (item as any).lot_number || '',
+        classification: (item as any).classification || '',
+        major_category: (item as any).major_category || '',
+        minor_category: (item as any).minor_category || '',
+        release_date: (item as any).release_date || '',
         jan_code: (item as any).jan_code || '',
-        price: item.price || '',
+        product_code: (item as any).product_code || (item as any).sku || '',
+        in_store: (item as any).in_store || '',
+        genre_name: (item as any).genre_name || (item as any).campaign_name || '',
+        supplier_name: (item as any).supplier_name || '',
+        ip_name: (item as any).ip_name || '',
+        character_name: (item as any).character_name || '',
+        productName: item.productName || '',
+        reference_sales_price: (item as any).reference_sales_price || '',
+        wholesale_price: (item as any).wholesale_price || item.price || '',
+        wholesale_quantity: (item as any).wholesale_quantity || (item as any).sold_out_quantity || '',
         stock: item.stock || '',
-        category: item.category || '',
-        brand: (item as any).brand || '',
-        manufacturer: (item as any).manufacturer || '',
+        order_amount: (item as any).order_amount || (item as any).sold_out_amount || '',
+        quantity_per_pack: (item as any).quantity_per_pack || (item as any).release_date_scheduled || '',
+        reservation_release_date: (item as any).reservation_release_date || (item as any).advance_notice_cutoff || '',
+        reservation_deadline: (item as any).reservation_deadline || (item as any).scheduled_release_date || '',
+        reservation_shipping_date: (item as any).reservation_shipping_date || (item as any).reserved_release_date || '',
+        case_pack_quantity: (item as any).case_pack_quantity || (item as any).pack_quantity || '',
+        single_product_size: (item as any).single_product_size || '',
+        inner_box_size: (item as any).inner_box_size || '',
+        carton_size: (item as any).carton_size || '',
+        inner_box_gtin: (item as any).inner_box_gtin || '',
+        outer_box_gtin: (item as any).outer_box_gtin || '',
         description: item.description || '',
-        weight: (item as any).weight || '',
-        color: (item as any).color || '',
-        material: (item as any).material || '',
-        origin: (item as any).origin || '',
-        warranty: (item as any).warranty || '',
-        dimensions: (item as any).dimensions || '',
+        protective_film_material: (item as any).protective_film_material || '',
+        country_of_origin: (item as any).country_of_origin || '',
+        target_age: (item as any).target_age || '',
+        image1: (item as any).image1 || '',
+        image2: (item as any).image2 || '',
+        image3: (item as any).image3 || '',
+        image4: (item as any).image4 || '',
+        image5: (item as any).image5 || '',
+        image6: (item as any).image6 || '',
       });
 
       // Find related products from the same source file
@@ -106,15 +129,44 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
   }, [item, allExtractedData]);
 
   const editableFields: EditableField[] = [
-    { key: 'productName', label: '商品名', type: 'text', required: true },
-    { key: 'sku', label: 'SKU', type: 'text' },
+    { key: 'lot_number', label: 'ロット番号', type: 'text' },
+    { key: 'classification', label: '区分', type: 'text' },
+    { key: 'major_category', label: '大分類', type: 'text' },
+    { key: 'minor_category', label: '中分類', type: 'text' },
+    { key: 'release_date', label: '発売日', type: 'text' },
     { key: 'jan_code', label: 'JANコード', type: 'text' },
-    { key: 'price', label: '価格', type: 'number' },
-    { key: 'stock', label: '在庫数', type: 'number' },
-    { key: 'category', label: 'カテゴリ', type: 'text' },
-    { key: 'brand', label: 'ブランド', type: 'text' },
-    { key: 'manufacturer', label: '製造元', type: 'text' },
+    { key: 'product_code', label: '商品番号', type: 'text' },
+    { key: 'in_store', label: 'インストア', type: 'text' },
+    { key: 'genre_name', label: 'ジャンル名称', type: 'text' },
+    { key: 'supplier_name', label: '仕入先', type: 'text' },
+    { key: 'ip_name', label: 'メーカー名称', type: 'text' },
+    { key: 'character_name', label: 'キャラクター名(IP名)', type: 'text' },
+    { key: 'productName', label: '商品名称', type: 'text', required: true },
+    { key: 'reference_sales_price', label: '参考販売価格', type: 'number' },
+    { key: 'wholesale_price', label: '卸単価（抜）', type: 'number' },
+    { key: 'wholesale_quantity', label: '卸可能数', type: 'number' },
+    { key: 'stock', label: '発注数', type: 'number' },
+    { key: 'order_amount', label: '発注金額', type: 'number' },
+    { key: 'quantity_per_pack', label: '入数', type: 'text' },
+    { key: 'reservation_release_date', label: '予約解禁日', type: 'text' },
+    { key: 'reservation_deadline', label: '予約締め切り日', type: 'text' },
+    { key: 'reservation_shipping_date', label: '予約商品発送予定日', type: 'text' },
+    { key: 'case_pack_quantity', label: 'ケース梱入数', type: 'number' },
+    { key: 'single_product_size', label: '単品サイズ', type: 'text' },
+    { key: 'inner_box_size', label: '内箱サイズ', type: 'text' },
+    { key: 'carton_size', label: 'カートンサイズ', type: 'text' },
+    { key: 'inner_box_gtin', label: '内箱GTIN', type: 'text' },
+    { key: 'outer_box_gtin', label: '外箱GTIN', type: 'text' },
     { key: 'description', label: '商品説明', type: 'textarea' },
+    { key: 'protective_film_material', label: '機材フィルム', type: 'text' },
+    { key: 'country_of_origin', label: '原産国', type: 'text' },
+    { key: 'target_age', label: '対象年齢', type: 'text' },
+    { key: 'image1', label: '画像1', type: 'text' },
+    { key: 'image2', label: '画像2', type: 'text' },
+    { key: 'image3', label: '画像3', type: 'text' },
+    { key: 'image4', label: '画像4', type: 'text' },
+    { key: 'image5', label: '画像5', type: 'text' },
+    { key: 'image6', label: '画像6', type: 'text' },
   ];
 
   const handleInputChange = (key: string, value: string) => {
@@ -128,40 +180,24 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
     // Convert and validate data before sending
     const processedData = { ...formData };
     
-    // Convert price to number or null
-    if (processedData.price === '' || processedData.price === null || processedData.price === undefined) {
-      processedData.price = null;
-    } else if (typeof processedData.price === 'string') {
-      const priceNum = parseFloat(processedData.price);
-      processedData.price = isNaN(priceNum) ? null : priceNum;
-    }
+    // Convert number fields
+    const numberFields = ['reference_sales_price', 'wholesale_price', 'wholesale_quantity', 'stock', 'order_amount', 'case_pack_quantity'];
+    numberFields.forEach(field => {
+      if (processedData[field] === '' || processedData[field] === null || processedData[field] === undefined) {
+        processedData[field] = null;
+      } else if (typeof processedData[field] === 'string') {
+        const num = field === 'stock' || field === 'wholesale_quantity' || field === 'case_pack_quantity' 
+          ? parseInt(processedData[field], 10) 
+          : parseFloat(processedData[field]);
+        processedData[field] = isNaN(num) ? null : num;
+      }
+    });
     
-    // Convert stock to integer or null
-    if (processedData.stock === '' || processedData.stock === null || processedData.stock === undefined) {
-      processedData.stock = null;
-    } else if (typeof processedData.stock === 'string') {
-      const stockNum = parseInt(processedData.stock, 10);
-      processedData.stock = isNaN(stockNum) ? null : stockNum;
-    }
-    
-    // Map camelCase to snake_case for backend compatibility
+    // Send all 38 fields to backend
     const backendData = {
+      ...processedData,
       product_name: processedData.productName,
-      productName: processedData.productName, // Keep both for compatibility
-      sku: processedData.sku,
-      jan_code: processedData.jan_code,
-      janCode: processedData.jan_code, // Keep both for compatibility
-      price: processedData.price,
-      stock: processedData.stock,
-      category: processedData.category,
-      brand: processedData.brand,
-      manufacturer: processedData.manufacturer,
-      description: processedData.description,
-      weight: processedData.weight,
-      color: processedData.color,
-      material: processedData.material,
-      origin: processedData.origin,
-      warranty: processedData.warranty
+      productName: processedData.productName,
     };
     
     updateMutation.mutate(backendData);
@@ -171,44 +207,11 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
     setSelectedProduct(product);
     setIsIndividualEditMode(true);
     
-    // Update form data with selected product
+    // Update form data with all 38 fields from selected product
     const newFormData: Record<string, any> = {};
     editableFields.forEach(field => {
-      if (field.key === 'productName') {
-        newFormData[field.key] = product.productName || '';
-      } else if (field.key === 'price') {
-        newFormData[field.key] = product.price || '';
-      } else if (field.key === 'stock') {
-        newFormData[field.key] = product.stock || '';
-      } else if (field.key === 'category') {
-        newFormData[field.key] = product.category || '';
-      } else if (field.key === 'brand') {
-        newFormData[field.key] = product.brand || '';
-      } else if (field.key === 'manufacturer') {
-        newFormData[field.key] = product.manufacturer || '';
-      } else if (field.key === 'description') {
-        newFormData[field.key] = product.description || '';
-      } else if (field.key === 'weight') {
-        newFormData[field.key] = product.weight || '';
-      } else if (field.key === 'color') {
-        newFormData[field.key] = product.color || '';
-      } else if (field.key === 'material') {
-        newFormData[field.key] = product.material || '';
-      } else if (field.key === 'origin') {
-        newFormData[field.key] = product.origin || '';
-      } else if (field.key === 'warranty') {
-        newFormData[field.key] = product.warranty || '';
-      } else {
-        // Handle additional fields from structured_data
-        const structuredData = (product as any).structured_data || {};
-        if (field.key === 'sku') {
-          newFormData[field.key] = (product as any).sku || structuredData.sku || '';
-        } else if (field.key === 'jan_code') {
-          newFormData[field.key] = (product as any).jan_code || structuredData.jan_code || '';
-        } else if (field.key === 'releaseDate') {
-          newFormData[field.key] = (product as any).release_date || structuredData.release_date || '';
-        }
-      }
+      const productData = product as any;
+      newFormData[field.key] = productData[field.key] || '';
     });
     setFormData(newFormData);
   };
@@ -335,71 +338,36 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                       <table className="w-full border-collapse">
                         <thead>
                           <tr className="border-b">
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[200px]">商品名</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[100px]">発売予定日</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[120px]">JANコード</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[100px]">希望小売価格</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[60px]">入数</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[100px]">商品サイズ</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[120px]">パッケージサイズ</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[100px]">内箱サイズ</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[120px]">カートンサイズ品番</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[100px]">パッケージ形態</th>
-                            <th className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[100px]">商品説明文</th>
+                            {editableFields.map((field) => (
+                              <th key={field.key} className="text-left py-2 px-2 text-sm font-medium text-gray-700 min-w-[100px]">
+                                {field.label}
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
                           {relatedProducts
                             .sort((a, b) => ((a as any).productIndex || 1) - ((b as any).productIndex || 1))
-                            .map((product, index) => (
+                            .map((product) => (
                             <tr 
                               key={product.id}
                               className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
                               onClick={() => handleProductClick(product)}
                             >
-                              <td className="py-2 px-2 text-sm">
-                                <div className="font-medium text-gray-900">
-                                  {product.productName || '未入力'}
-                                </div>
-                              </td>
-                              <td className="py-2 px-2 text-sm text-gray-700">
-                                {(product as any).release_date || ''}
-                              </td>
-                              <td className="py-2 px-2 text-sm font-mono text-gray-700">
-                                <div className={`px-2 py-1 rounded text-xs ${(product as any).jan_code ? 'bg-yellow-100' : 'bg-gray-100'}`}>
-                                  {(product as any).jan_code || '未入力'}
-                                </div>
-                              </td>
-                              <td className="py-2 px-2 text-sm text-gray-700">
-                                {product.price ? `${Number(product.price).toLocaleString()}円(税抜価格${Math.floor(Number(product.price) * 0.91)}円)` : '未入力'}
-                              </td>
-                              <td className="py-2 px-2 text-sm text-gray-700">
-                                {product.stock || ''}
-                              </td>
-                              <td className="py-2 px-2 text-sm text-gray-700">
-                                {(product as any).dimensions || ''}
-                              </td>
-                              <td className="py-2 px-2 text-sm text-gray-700">
-                                <div className={`px-2 py-1 rounded text-xs ${(product as any).package_size ? 'bg-yellow-100' : 'bg-gray-100'}`}>
-                                  {(product as any).package_size || ''}
-                                </div>
-                              </td>
-                              <td className="py-2 px-2 text-sm text-gray-700">
-                                {(product as any).inner_box_size || ''}
-                              </td>
-                              <td className="py-2 px-2 text-sm text-gray-700">
-                                <div className={`px-2 py-1 rounded text-xs ${(product as any).carton_size ? 'bg-yellow-100' : 'bg-gray-100'}`}>
-                                  {(product as any).carton_size || ''}
-                                </div>
-                              </td>
-                              <td className="py-2 px-2 text-sm text-gray-700">
-                                {(product as any).package_type || ''}
-                              </td>
-                              <td className="py-2 px-2 text-sm text-gray-700">
-                                <div className="max-w-[100px] truncate">
-                                  {product.description || '未入力'}
-                                </div>
-                              </td>
+                              {editableFields.map((field) => (
+                                <td key={field.key} className="py-2 px-2 text-sm text-gray-700">
+                                  <div className="max-w-[200px] truncate">
+                                    {field.key === 'productName' && (
+                                      <span className="font-medium text-gray-900">
+                                        {(product as any)[field.key] || '未入力'}
+                                      </span>
+                                    )}
+                                    {field.key !== 'productName' && (
+                                      (product as any)[field.key] || ''
+                                    )}
+                                  </div>
+                                </td>
+                              ))}
                             </tr>
                           ))}
                         </tbody>
@@ -512,118 +480,32 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                   </CardHeader>
                   <CardContent>
                     <ScrollArea className="h-[600px] pr-4">
-                                             <div className="grid grid-cols-1 gap-6">
-                         {/* 商品名 */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            商品名 <span className="text-red-500">*</span>
-                          </label>
-                          <Input
-                            value={formData.productName || ''}
-                            onChange={(e) => handleInputChange('productName', e.target.value)}
-                            className="w-full"
-                            placeholder="ソフビタイムシリーズ ポケモンコインバンク"
-                          />
-                        </div>
-
-                        {/* SKU */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">品番</label>
-                          <Input
-                            value={formData.sku || ''}
-                            onChange={(e) => handleInputChange('sku', e.target.value)}
-                            className="w-full"
-                            placeholder=""
-                          />
-                        </div>
-
-                        {/* JANコード */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            JANコード <span className="text-orange-500">NG</span>
-                          </label>
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                            <Input
-                              value={formData.jan_code || ''}
-                              onChange={(e) => handleInputChange('jan_code', e.target.value)}
-                              className="w-full bg-white"
-                              placeholder=""
-                            />
+                      <div className="grid grid-cols-1 gap-6">
+                        {editableFields.map((field) => (
+                          <div key={field.key} className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              {field.label}
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            {field.type === 'textarea' ? (
+                              <textarea
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                rows={4}
+                                value={formData[field.key] || ''}
+                                onChange={(e) => handleInputChange(field.key, e.target.value)}
+                                placeholder=""
+                              />
+                            ) : (
+                              <Input
+                                type={field.type}
+                                value={formData[field.key] || ''}
+                                onChange={(e) => handleInputChange(field.key, e.target.value)}
+                                className="w-full"
+                                placeholder=""
+                              />
+                            )}
                           </div>
-                        </div>
-
-                        {/* 価格 */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">価格</label>
-                          <Input
-                            type="number"
-                            value={formData.price || ''}
-                            onChange={(e) => handleInputChange('price', e.target.value)}
-                            className="w-full"
-                            placeholder=""
-                          />
-                        </div>
-
-                        {/* 在庫数 */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">在庫数</label>
-                          <Input
-                            type="number"
-                            value={formData.stock || ''}
-                            onChange={(e) => handleInputChange('stock', e.target.value)}
-                            className="w-full"
-                            placeholder=""
-                          />
-                        </div>
-
-                        {/* カテゴリ */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">カテゴリ</label>
-                          <Input
-                            value={formData.category || ''}
-                            onChange={(e) => handleInputChange('category', e.target.value)}
-                            className="w-full"
-                            placeholder=""
-                          />
-                        </div>
-
-                        {/* ブランド */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">ブランド</label>
-                          <Input
-                            value={formData.brand || ''}
-                            onChange={(e) => handleInputChange('brand', e.target.value)}
-                            className="w-full"
-                            placeholder=""
-                          />
-                        </div>
-
-                        {/* 製造元 */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            製造元 <span className="text-orange-500">NG</span>
-                          </label>
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                            <Input
-                              value={formData.manufacturer || ''}
-                              onChange={(e) => handleInputChange('manufacturer', e.target.value)}
-                              className="w-full bg-white"
-                              placeholder="未入力 (NG)"
-                            />
-                          </div>
-                        </div>
-
-                        {/* 商品説明 */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">商品説明</label>
-                          <textarea
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            rows={4}
-                            value={formData.description || ''}
-                            onChange={(e) => handleInputChange('description', e.target.value)}
-                            placeholder="ポケットモンスターのキャラクターをデフォルメした可愛い貯金箱。ピカチュウ、パチリス、ハリマロンなど..."
-                          />
-                        </div>
+                        ))}
                       </div>
                     </ScrollArea>
                   </CardContent>

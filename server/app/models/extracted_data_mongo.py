@@ -34,37 +34,52 @@ class ExtractedData(Document):
     dimensions: Optional[Union[str, Dict[str, Any]]] = None
     specifications: Optional[Union[str, Dict[str, Any]]] = None
     
-    # Additional fields for 38-column format support
-    release_date: Optional[str] = None  # 発売日
-    package_size: Optional[str] = None  # 内箱サイズ
-    carton_size: Optional[str] = None   # カートンサイズ
-    lot_number: Optional[str] = None    # ロット番号
-    classification: Optional[str] = None # 区分
-    sub_category: Optional[str] = None  # 中分類
-    in_store: Optional[str] = None      # インストア
-    campaign_name: Optional[str] = None # キャンペーン名称
-    supplier: Optional[str] = None      # 仕入先
-    ip_name: Optional[str] = None       # キャンペーン名(IP名)
-    reference_price: Optional[float] = None # 参考販売価格
-    tax_included_price: Optional[float] = None # 容量価格(税)
-    wholesale_quantity: Optional[int] = None # 卸可能数
-    sold_out_quantity: Optional[int] = None # 完売数
-    sold_out_amount: Optional[float] = None # 完売金額
-    case_quantity: Optional[int] = None # ケース入数
-    product_size: Optional[str] = None  # 単品サイズ
-    inner_box_gtin: Optional[str] = None # 内箱GTIN
-    outer_box_gtin: Optional[str] = None # 外箱GTIN
-    packaging_material: Optional[str] = None # 保材フィルム
-    target_age: Optional[str] = None    # 対象年齢
-    reservation_start_date: Optional[str] = None # 予約解禁日
-    reservation_available_date: Optional[str] = None # 予約開始の可能日
-    reservation_shipping_date: Optional[str] = None # 予約商品発送予定日
-    image1_url: Optional[str] = None    # 画像1
-    image2_url: Optional[str] = None    # 画像2
-    image3_url: Optional[str] = None    # 画像3
-    image4_url: Optional[str] = None    # 画像4
-    image5_url: Optional[str] = None    # 画像5
-    image6_url: Optional[str] = None    # 画像6
+    # 38 Company-Specified Fields (完全な38項目)
+    lot_number: Optional[str] = None                    # 1. ロット番号
+    classification: Optional[str] = None                # 2. 区分
+    major_category: Optional[str] = None                # 3. 大分類
+    minor_category: Optional[str] = None                # 4. 中分類
+    release_date: Optional[str] = None                  # 5. 発売日
+    # jan_code already defined above                   # 6. JANコード
+    product_code: Optional[str] = None                  # 7. 商品番号
+    in_store: Optional[str] = None                      # 8. インストア
+    genre_name: Optional[str] = None                    # 9. ジャンル名称
+    supplier_name: Optional[str] = None                 # 10. 仕入先
+    ip_name: Optional[str] = None                       # 11. メーカー名称
+    character_name: Optional[str] = None                # 12. キャラクター名(IP名)
+    # product_name already defined above               # 13. 商品名称
+    reference_sales_price: Optional[float] = None       # 14. 参考販売価格
+    wholesale_price: Optional[float] = None             # 15. 卸単価（抜）
+    wholesale_quantity: Optional[int] = None            # 16. 卸可能数
+    # stock already defined above                      # 17. 発注数
+    order_amount: Optional[float] = None                # 18. 発注金額
+    quantity_per_pack: Optional[str] = None             # 19. 入数
+    reservation_release_date: Optional[str] = None      # 20. 予約解禁日
+    reservation_deadline: Optional[str] = None          # 21. 予約締め切り日
+    reservation_shipping_date: Optional[str] = None     # 22. 予約商品発送予定日
+    case_pack_quantity: Optional[int] = None            # 23. ケース梱入数
+    single_product_size: Optional[str] = None           # 24. 単品サイズ
+    inner_box_size: Optional[str] = None                # 25. 内箱サイズ
+    carton_size: Optional[str] = None                   # 26. カートンサイズ
+    inner_box_gtin: Optional[str] = None                # 27. 内箱GTIN
+    outer_box_gtin: Optional[str] = None                # 28. 外箱GTIN
+    # description already defined above                # 29. 商品説明
+    protective_film_material: Optional[str] = None      # 30. 機材フィルム
+    country_of_origin: Optional[str] = None             # 31. 原産国
+    target_age: Optional[str] = None                    # 32. 対象年齢
+    image1: Optional[str] = None                        # 33. 画像1
+    image2: Optional[str] = None                        # 34. 画像2
+    image3: Optional[str] = None                        # 35. 画像3
+    image4: Optional[str] = None                        # 36. 画像4
+    image5: Optional[str] = None                        # 37. 画像5
+    image6: Optional[str] = None                        # 38. 画像6
+    
+    # Legacy fields for backward compatibility
+    package_size: Optional[str] = None
+    product_size: Optional[str] = None
+    packaging_material: Optional[str] = None
+    campaign_name: Optional[str] = None
+    supplier: Optional[str] = None
     
     # OCR technical fields
     page_number: Optional[int] = None
