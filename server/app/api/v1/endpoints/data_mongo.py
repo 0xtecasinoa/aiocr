@@ -35,36 +35,36 @@ def convert_extracted_data_to_dict(item: ExtractedData) -> Dict[str, Any]:
         "dimensions": getattr(item, 'dimensions', None),
         "specifications": getattr(item, 'specifications', None),
         
-        # 38 Company-Specified Fields
-        "lot_number": getattr(item, 'lot_number', None),
+        # 38 Company-Specified Fields (camelCase for frontend)
+        "lotNumber": getattr(item, 'lot_number', None),
         "classification": getattr(item, 'classification', None),
-        "major_category": getattr(item, 'major_category', None),
-        "minor_category": getattr(item, 'minor_category', None),
-        "release_date": getattr(item, 'release_date', None),
-        "jan_code": getattr(item, 'jan_code', None),
-        "product_code": getattr(item, 'product_code', None),
-        "in_store": getattr(item, 'in_store', None),
-        "genre_name": getattr(item, 'genre_name', None),
-        "supplier_name": getattr(item, 'supplier_name', None),
-        "ip_name": getattr(item, 'ip_name', None),
-        "character_name": getattr(item, 'character_name', None),
-        "reference_sales_price": getattr(item, 'reference_sales_price', None),
-        "wholesale_price": getattr(item, 'wholesale_price', None),
-        "wholesale_quantity": getattr(item, 'wholesale_quantity', None),
-        "order_amount": getattr(item, 'order_amount', None),
-        "quantity_per_pack": getattr(item, 'quantity_per_pack', None),
-        "reservation_release_date": getattr(item, 'reservation_release_date', None),
-        "reservation_deadline": getattr(item, 'reservation_deadline', None),
-        "reservation_shipping_date": getattr(item, 'reservation_shipping_date', None),
-        "case_pack_quantity": getattr(item, 'case_pack_quantity', None),
-        "single_product_size": getattr(item, 'single_product_size', None),
-        "inner_box_size": getattr(item, 'inner_box_size', None),
-        "carton_size": getattr(item, 'carton_size', None),
-        "inner_box_gtin": getattr(item, 'inner_box_gtin', None),
-        "outer_box_gtin": getattr(item, 'outer_box_gtin', None),
-        "protective_film_material": getattr(item, 'protective_film_material', None),
-        "country_of_origin": getattr(item, 'country_of_origin', None),
-        "target_age": getattr(item, 'target_age', None),
+        "majorCategory": getattr(item, 'major_category', None),
+        "minorCategory": getattr(item, 'minor_category', None),
+        "releaseDate": getattr(item, 'release_date', None),
+        "janCode": getattr(item, 'jan_code', None),
+        "productCode": getattr(item, 'product_code', None),
+        "inStore": getattr(item, 'in_store', None),
+        "genreName": getattr(item, 'genre_name', None),
+        "supplierName": getattr(item, 'supplier_name', None),
+        "ipName": getattr(item, 'ip_name', None),
+        "characterName": getattr(item, 'character_name', None),
+        "referenceSalesPrice": getattr(item, 'reference_sales_price', None),
+        "wholesalePrice": getattr(item, 'wholesale_price', None),
+        "wholesaleQuantity": getattr(item, 'wholesale_quantity', None),
+        "orderAmount": getattr(item, 'order_amount', None),
+        "quantityPerPack": getattr(item, 'quantity_per_pack', None),
+        "reservationReleaseDate": getattr(item, 'reservation_release_date', None),
+        "reservationDeadline": getattr(item, 'reservation_deadline', None),
+        "reservationShippingDate": getattr(item, 'reservation_shipping_date', None),
+        "casePackQuantity": getattr(item, 'case_pack_quantity', None),
+        "singleProductSize": getattr(item, 'single_product_size', None),
+        "innerBoxSize": getattr(item, 'inner_box_size', None),
+        "cartonSize": getattr(item, 'carton_size', None),
+        "innerBoxGtin": getattr(item, 'inner_box_gtin', None),
+        "outerBoxGtin": getattr(item, 'outer_box_gtin', None),
+        "protectiveFilmMaterial": getattr(item, 'protective_film_material', None),
+        "countryOfOrigin": getattr(item, 'country_of_origin', None),
+        "targetAge": getattr(item, 'target_age', None),
         "image1": getattr(item, 'image1', None),
         "image2": getattr(item, 'image2', None),
         "image3": getattr(item, 'image3', None),
@@ -589,91 +589,89 @@ async def update_extracted_data(
                 detail="Not authorized to update this data"
             )
         
-        # Update fields
+        # camelCase to snake_case mapping for all 38 fields
+        field_mapping = {
+            'productName': 'product_name',
+            'lotNumber': 'lot_number',
+            'classification': 'classification',
+            'majorCategory': 'major_category',
+            'minorCategory': 'minor_category',
+            'releaseDate': 'release_date',
+            'janCode': 'jan_code',
+            'productCode': 'product_code',
+            'inStore': 'in_store',
+            'genreName': 'genre_name',
+            'supplierName': 'supplier_name',
+            'ipName': 'ip_name',
+            'characterName': 'character_name',
+            'referenceSalesPrice': 'reference_sales_price',
+            'wholesalePrice': 'wholesale_price',
+            'wholesaleQuantity': 'wholesale_quantity',
+            'stock': 'stock',
+            'orderAmount': 'order_amount',
+            'quantityPerPack': 'quantity_per_pack',
+            'reservationReleaseDate': 'reservation_release_date',
+            'reservationDeadline': 'reservation_deadline',
+            'reservationShippingDate': 'reservation_shipping_date',
+            'casePackQuantity': 'case_pack_quantity',
+            'singleProductSize': 'single_product_size',
+            'innerBoxSize': 'inner_box_size',
+            'cartonSize': 'carton_size',
+            'innerBoxGtin': 'inner_box_gtin',
+            'outerBoxGtin': 'outer_box_gtin',
+            'description': 'description',
+            'protectiveFilmMaterial': 'protective_film_material',
+            'countryOfOrigin': 'country_of_origin',
+            'targetAge': 'target_age',
+            'image1': 'image1',
+            'image2': 'image2',
+            'image3': 'image3',
+            'image4': 'image4',
+            'image5': 'image5',
+            'image6': 'image6',
+            # Legacy fields
+            'sku': 'sku',
+            'price': 'price',
+            'category': 'category',
+            'brand': 'brand',
+            'manufacturer': 'manufacturer',
+            'weight': 'weight',
+            'color': 'color',
+            'material': 'material',
+            'origin': 'origin',
+            'warranty': 'warranty',
+        }
+        
+        # Number fields that need conversion
+        number_fields = {
+            'referenceSalesPrice': 'float',
+            'wholesalePrice': 'float',
+            'wholesaleQuantity': 'int',
+            'stock': 'int',
+            'orderAmount': 'float',
+            'casePackQuantity': 'int',
+            'price': 'float',
+        }
+        
         update_fields = {}
-        if "product_name" in data_update:
-            update_fields["product_name"] = data_update["product_name"]
-        if "productName" in data_update:  # 互換性のため両方対応
-            update_fields["product_name"] = data_update["productName"]
-        if "sku" in data_update:
-            update_fields["sku"] = data_update["sku"]
-        if "price" in data_update:
-            # Handle price conversion
-            price_value = data_update["price"]
-            if price_value == "" or price_value is None:
-                update_fields["price"] = None
-            else:
-                try:
-                    update_fields["price"] = float(price_value) if price_value != "" else None
-                except (ValueError, TypeError):
-                    update_fields["price"] = None
-        
-        if "stock" in data_update:
-            # Handle stock conversion
-            stock_value = data_update["stock"]
-            if stock_value == "" or stock_value is None:
-                update_fields["stock"] = None
-            else:
-                try:
-                    update_fields["stock"] = int(stock_value) if stock_value != "" else None
-                except (ValueError, TypeError):
-                    update_fields["stock"] = None
-        if "category" in data_update:
-            update_fields["category"] = data_update["category"]
-        if "description" in data_update:
-            update_fields["description"] = data_update["description"]
-        
-        # 新しいフィールドを追加
-        if "brand" in data_update:
-            update_fields["brand"] = data_update["brand"]
-        if "manufacturer" in data_update:
-            update_fields["manufacturer"] = data_update["manufacturer"]
-        if "jan_code" in data_update:
-            update_fields["jan_code"] = data_update["jan_code"]
-        if "janCode" in data_update:  # フロントエンドのcamelCase対応
-            update_fields["jan_code"] = data_update["janCode"]
-        if "weight" in data_update:
-            update_fields["weight"] = data_update["weight"]
-        if "color" in data_update:
-            update_fields["color"] = data_update["color"]
-        if "material" in data_update:
-            update_fields["material"] = data_update["material"]
-        if "origin" in data_update:
-            update_fields["origin"] = data_update["origin"]
-        if "warranty" in data_update:
-            update_fields["warranty"] = data_update["warranty"]
-        if "is_validated" in data_update:
-            update_fields["is_validated"] = data_update["is_validated"]
-        
-        # Enhanced extraction fields
-        if "release_date" in data_update:
-            update_fields["release_date"] = data_update["release_date"]
-        if "package_size" in data_update:
-            update_fields["package_size"] = data_update["package_size"]
-        if "carton_size" in data_update:
-            update_fields["carton_size"] = data_update["carton_size"]
-        if "product_size" in data_update:
-            update_fields["product_size"] = data_update["product_size"]
-        if "dimensions" in data_update:
-            update_fields["dimensions"] = data_update["dimensions"]
-        if "target_age" in data_update:
-            update_fields["target_age"] = data_update["target_age"]
-        if "packaging_material" in data_update:
-            update_fields["packaging_material"] = data_update["packaging_material"]
-        if "inner_box_gtin" in data_update:
-            update_fields["inner_box_gtin"] = data_update["inner_box_gtin"]
-        if "outer_box_gtin" in data_update:
-            update_fields["outer_box_gtin"] = data_update["outer_box_gtin"]
-        if "case_quantity" in data_update:
-            # Handle case_quantity conversion
-            case_qty_value = data_update["case_quantity"]
-            if case_qty_value == "" or case_qty_value is None:
-                update_fields["case_quantity"] = None
-            else:
-                try:
-                    update_fields["case_quantity"] = int(case_qty_value) if case_qty_value != "" else None
-                except (ValueError, TypeError):
-                    update_fields["case_quantity"] = None
+        for frontend_key, backend_key in field_mapping.items():
+            if frontend_key in data_update:
+                value = data_update[frontend_key]
+                
+                # Handle number conversions
+                if frontend_key in number_fields:
+                    if value == "" or value is None:
+                        update_fields[backend_key] = None
+                    else:
+                        try:
+                            if number_fields[frontend_key] == 'int':
+                                update_fields[backend_key] = int(value)
+                            else:
+                                update_fields[backend_key] = float(value)
+                        except (ValueError, TypeError):
+                            update_fields[backend_key] = None
+                else:
+                    update_fields[backend_key] = value
         
         print(f"DEBUG: Fields to update: {update_fields}")
         
