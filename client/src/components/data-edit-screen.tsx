@@ -286,9 +286,6 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
                   <FilePreviewInline 
                     fileId={(item as any).uploadedFileId}
                   />
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-sm text-gray-600">実際資_ポケットモンスター_ポケモン...</span>
-                  </div>
                 </CardContent>
               </Card>
             </div>

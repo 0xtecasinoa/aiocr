@@ -36,6 +36,7 @@ export interface ExtractedData {
   price?: number;
   category?: string;
   brand?: string;
+  manufacturer?: string;
   stock?: number;
   
   // System fields
