@@ -137,69 +137,69 @@ class OpenAIOCRService:
             ocr_prompt = f"""
             {language_context}
             
-            You are an advanced OCR and data extraction AI. Extract product information from this image and return structured data.
+            You are an advanced OCR and data extraction AI specialized in Japanese product specification sheets (商品案内書/仕様書).
             
             CRITICAL: This image may contain MULTIPLE DIFFERENT PRODUCTS. Each product should be extracted as a separate object.
             
-            EXTRACTION REQUIREMENTS - For EACH product, extract ALL available fields from the following 38 items:
+            EXTRACTION REQUIREMENTS - For EACH product, extract the following 15 PRACTICAL FIELDS:
             
             **基本情報 (Basic Information):**
-            1. lot_number - ロット番号
-            2. classification - 区分
-            3. major_category - 大分類
-            4. minor_category - 中分類
-            5. release_date - 発売日 (format: YYYY/MM/DD or YYYY年MM月DD日)
-            6. jan_code - JANコード (13-digit barcode number, often starts with 4970381)
-            7. product_code - 商品番号 (e.g., EN-1420, ST-03CB)
-            8. in_store - インストア
-            9. genre_name - ジャンル名称
-            10. supplier_name - 仕入先
-            11. ip_name - メーカー名称
-            12. character_name - キャラクター名(IP名)
-            13. product_name - 商品名称
+            1. product_name - 商品名 (Product name, often contains character names and item type)
+            2. product_code - 品番/商品番号 (Product code like EN-1420, ST-03CB, etc.)
+            3. character_name - キャラクター名 (Character/IP name if applicable)
+            4. release_date - 発売予定日 (Release date in format: YYYY年MM月DD日 or YYYY/MM/DD)
+            5. reference_sales_price - 希望小売価格 (Suggested retail price as a number, e.g., 1100, 2400)
             
-            **価格・数量情報 (Price & Quantity):**
-            14. reference_sales_price - 参考販売価格 (number only, e.g., 1100)
-            15. wholesale_price - 卸単価（抜） (number only)
-            16. wholesale_quantity - 卸可能数 (integer)
-            17. stock - 発注数 (integer)
-            18. order_amount - 発注金額 (number)
-            19. quantity_per_pack - 入数 (e.g., "60", "12個入り")
+            **JANコード/バーコード (Barcode Information):**
+            6. jan_code - 単品 JANコード (Single item JAN code, 13-digit barcode starting with 4970381 or similar)
+            7. inner_box_gtin - BOX/内箱 JANコード (Box/Inner box JAN code, 13-14 digits)
             
-            **予約情報 (Reservation):**
-            20. reservation_release_date - 予約解禁日
-            21. reservation_deadline - 予約締め切り日
-            22. reservation_shipping_date - 予約商品発送予定日
+            **サイズ情報 (Size Information):**
+            8. single_product_size - 商品サイズ (Product size like "約107×70×61mm" or "H150×W100mm")
+            9. package_size - パッケージサイズ (Package size dimensions)
+            10. inner_box_size - 内箱サイズ (Inner box size dimensions)
+            11. carton_size - カートンサイズ (Carton/outer box size dimensions)
             
-            **サイズ・梱包情報 (Size & Packaging):**
-            23. case_pack_quantity - ケース梱入数 (integer, e.g., 72)
-            24. single_product_size - 単品サイズ (e.g., "91×66mm")
-            25. inner_box_size - 内箱サイズ
-            26. carton_size - カートンサイズ
-            27. inner_box_gtin - 内箱GTIN (13-14 digits)
-            28. outer_box_gtin - 外箱GTIN (13-14 digits)
+            **数量・梱包情報 (Quantity & Packaging):**
+            12. quantity_per_pack - 入数 (Quantity per pack like "12個", "60", "16ケ×15B")
+            13. case_pack_quantity - カートン入数/ケース梱入数 (Case pack quantity as integer, e.g., 72, 240)
             
-            **その他情報 (Other):**
-            29. description - 商品説明
-            30. protective_film_material - 機材フィルム
-            31. country_of_origin - 原産国 (e.g., "日本", "中国")
-            32. target_age - 対象年齢 (e.g., "3歳以上")
-            33. image1 - 画像1 (URL if present)
-            34. image2 - 画像2 (URL if present)
-            35. image3 - 画像3 (URL if present)
-            36. image4 - 画像4 (URL if present)
-            37. image5 - 画像5 (URL if present)
-            38. image6 - 画像6 (URL if present)
+            **商品詳細 (Product Details):**
+            14. package_type - パッケージ形態 (Package type like "ブリスター", "箱", "袋")
+            15. description - セット内容・素材・仕様など (Set contents, materials, specifications)
+            
+            **IMPORTANT EXTRACTION PATTERNS:**
+            
+            - **Product Name**: Look for "商品名", often includes character names and item type (e.g., "キャラクタースリーブ『甘神さんちの縁結び』", "ポケモンコインバンク")
+            - **Product Code**: Format EN-XXXX, ST-XXCB, or similar alphanumeric codes
+            - **Release Date**: Look for "発売予定日", "発売日" followed by date (2025年1月24日, 2024年12月, etc.)
+            - **Price**: Look for "希望小売価格", "税抜価格", often with ¥ symbol (¥1,100, 2,400円)
+            - **JAN Code**: 13-digit barcode, often starts with 4970381 or 4571622. Look for numbers under barcode images.
+            - **Sizes**: Look for "約XXX×YYY×ZZZmm" or "HXX×WYYmm" patterns
+            - **Quantity**: Look for "XX入", "XXケ", "XX個入り", "XXパック×YBOX"
+            - **Case Pack**: Look for "カートン入数", "ケース梱入数", total quantity calculations
             
             **BARCODE READING PRIORITY:**
             - Look for BLACK AND WHITE STRIPED BARCODE PATTERNS
             - Read the numbers displayed UNDER the barcode stripes carefully
-            - JAN codes are typically 13 digits starting with 4 (e.g., 4970381806170)
+            - JAN codes are typically 13 digits starting with 4 (e.g., 4970381806170, 4571622782781)
+            - Inner box codes may have different prefixes
             
             **MULTI-PRODUCT HANDLING:**
             - If you detect multiple products (different product codes, JAN codes, or character names), extract each as a separate product
             - Each product should have its own complete set of fields
             - Do NOT mix information from different products
+            - Look for product separators like different EN-codes, ST-codes, or character names
+            
+            **PRICE HANDLING:**
+            - Extract the numeric value only (remove ¥, 円, commas)
+            - If both 税込 and 税抜 prices are shown, prefer 税抜 (tax-excluded) price
+            - Example: "1パック2,100円（税抜価格1,100円）" → extract 1100
+            
+            **SIZE FORMAT EXAMPLES:**
+            - "約107×70×61mm" → "約107×70×61mm"
+            - "H150×W100mm" → "H150×W100mm"
+            - "63×89mm" → "63×89mm"
             
             RESPONSE FORMAT - Return ONLY valid JSON in this exact structure:
             {{
@@ -209,43 +209,20 @@ class OpenAIOCRService:
                 "products": [
                     {{
                         "product_name": "extracted value or null",
-                        "jan_code": "extracted value or null",
                         "product_code": "extracted value or null",
-                        "lot_number": "extracted value or null",
-                        "classification": "extracted value or null",
-                        "major_category": "extracted value or null",
-                        "minor_category": "extracted value or null",
-                        "release_date": "extracted value or null",
-                        "in_store": "extracted value or null",
-                        "genre_name": "extracted value or null",
-                        "supplier_name": "extracted value or null",
-                        "ip_name": "extracted value or null",
                         "character_name": "extracted value or null",
+                        "release_date": "extracted value or null",
                         "reference_sales_price": number or null,
-                        "wholesale_price": number or null,
-                        "wholesale_quantity": number or null,
-                        "stock": number or null,
-                        "order_amount": number or null,
-                        "quantity_per_pack": "extracted value or null",
-                        "reservation_release_date": "extracted value or null",
-                        "reservation_deadline": "extracted value or null",
-                        "reservation_shipping_date": "extracted value or null",
-                        "case_pack_quantity": number or null,
+                        "jan_code": "extracted value or null",
+                        "inner_box_gtin": "extracted value or null",
                         "single_product_size": "extracted value or null",
+                        "package_size": "extracted value or null",
                         "inner_box_size": "extracted value or null",
                         "carton_size": "extracted value or null",
-                        "inner_box_gtin": "extracted value or null",
-                        "outer_box_gtin": "extracted value or null",
-                        "description": "extracted value or null",
-                        "protective_film_material": "extracted value or null",
-                        "country_of_origin": "extracted value or null",
-                        "target_age": "extracted value or null",
-                        "image1": "extracted value or null",
-                        "image2": "extracted value or null",
-                        "image3": "extracted value or null",
-                        "image4": "extracted value or null",
-                        "image5": "extracted value or null",
-                        "image6": "extracted value or null"
+                        "quantity_per_pack": "extracted value or null",
+                        "case_pack_quantity": number or null,
+                        "package_type": "extracted value or null",
+                        "description": "extracted value or null"
                     }}
                 ]
             }}
@@ -258,6 +235,7 @@ class OpenAIOCRService:
             5. Extract Japanese text exactly as shown (kanji, hiragana, katakana)
             6. If only 1 product is detected, the "products" array should have 1 object
             7. If multiple products are detected, create separate objects for each
+            8. Focus on ACCURACY over completeness - only extract what you can clearly see
             """
             
             print(f"🤖 OPENAI OCR: Processing image with {self.model}")
@@ -378,56 +356,28 @@ class OpenAIOCRService:
                 # Process products from OpenAI's structured response
                 structured_products = []
                 for i, ai_product in enumerate(products_from_ai):
-                    # OpenAI returned all 38 fields - use them directly
+                    # OpenAI returned 15 practical fields - use them directly
                     product_data = {
-                        # Core fields
+                        # 15 Practical Fields
                         "product_name": ai_product.get('product_name'),
-                        "jan_code": ai_product.get('jan_code'),
-                        "description": ai_product.get('description'),
-                        
-                        # 38 Company-Specified Fields
-                        "lot_number": ai_product.get('lot_number'),
-                        "classification": ai_product.get('classification'),
-                        "major_category": ai_product.get('major_category'),
-                        "minor_category": ai_product.get('minor_category'),
-                        "release_date": ai_product.get('release_date'),
                         "product_code": ai_product.get('product_code'),
-                        "in_store": ai_product.get('in_store'),
-                        "genre_name": ai_product.get('genre_name'),
-                        "supplier_name": ai_product.get('supplier_name'),
-                        "ip_name": ai_product.get('ip_name'),
                         "character_name": ai_product.get('character_name'),
+                        "release_date": ai_product.get('release_date'),
                         "reference_sales_price": ai_product.get('reference_sales_price'),
-                        "wholesale_price": ai_product.get('wholesale_price'),
-                        "wholesale_quantity": ai_product.get('wholesale_quantity'),
-                        "stock": ai_product.get('stock'),
-                        "order_amount": ai_product.get('order_amount'),
-                        "quantity_per_pack": ai_product.get('quantity_per_pack'),
-                        "reservation_release_date": ai_product.get('reservation_release_date'),
-                        "reservation_deadline": ai_product.get('reservation_deadline'),
-                        "reservation_shipping_date": ai_product.get('reservation_shipping_date'),
-                        "case_pack_quantity": ai_product.get('case_pack_quantity'),
+                        "jan_code": ai_product.get('jan_code'),
+                        "inner_box_gtin": ai_product.get('inner_box_gtin'),
                         "single_product_size": ai_product.get('single_product_size'),
+                        "package_size": ai_product.get('package_size'),
                         "inner_box_size": ai_product.get('inner_box_size'),
                         "carton_size": ai_product.get('carton_size'),
-                        "inner_box_gtin": ai_product.get('inner_box_gtin'),
-                        "outer_box_gtin": ai_product.get('outer_box_gtin'),
-                        "protective_film_material": ai_product.get('protective_film_material'),
-                        "country_of_origin": ai_product.get('country_of_origin'),
-                        "target_age": ai_product.get('target_age'),
-                        "image1": ai_product.get('image1'),
-                        "image2": ai_product.get('image2'),
-                        "image3": ai_product.get('image3'),
-                        "image4": ai_product.get('image4'),
-                        "image5": ai_product.get('image5'),
-                        "image6": ai_product.get('image6'),
+                        "quantity_per_pack": ai_product.get('quantity_per_pack'),
+                        "case_pack_quantity": ai_product.get('case_pack_quantity'),
+                        "package_type": ai_product.get('package_type'),
+                        "description": ai_product.get('description'),
                         
                         # Legacy fields for backward compatibility
                         "sku": ai_product.get('product_code'),  # Use product_code as SKU
-                        "price": ai_product.get('wholesale_price') or ai_product.get('reference_sales_price'),
-                        "category": ai_product.get('major_category'),
-                        "brand": ai_product.get('ip_name'),
-                        "manufacturer": ai_product.get('supplier_name'),
+                        "price": ai_product.get('reference_sales_price'),
                         
                         # Meta fields
                         "product_index": i + 1,
@@ -435,28 +385,22 @@ class OpenAIOCRService:
                     }
                     structured_products.append(product_data)
                     
-                    # Count how many of the 38 fields were extracted
-                    fields_38 = [
-                        'lot_number', 'classification', 'major_category', 'minor_category', 
-                        'release_date', 'jan_code', 'product_code', 'in_store', 'genre_name',
-                        'supplier_name', 'ip_name', 'character_name', 'product_name',
-                        'reference_sales_price', 'wholesale_price', 'wholesale_quantity', 
-                        'stock', 'order_amount', 'quantity_per_pack', 'reservation_release_date',
-                        'reservation_deadline', 'reservation_shipping_date', 'case_pack_quantity',
-                        'single_product_size', 'inner_box_size', 'carton_size', 'inner_box_gtin',
-                        'outer_box_gtin', 'description', 'protective_film_material', 
-                        'country_of_origin', 'target_age', 'image1', 'image2', 'image3', 
-                        'image4', 'image5', 'image6'
+                    # Count how many of the 15 fields were extracted
+                    fields_15 = [
+                        'product_name', 'product_code', 'character_name', 'release_date',
+                        'reference_sales_price', 'jan_code', 'inner_box_gtin', 'single_product_size',
+                        'package_size', 'inner_box_size', 'carton_size', 'quantity_per_pack',
+                        'case_pack_quantity', 'package_type', 'description'
                     ]
-                    extracted_count = sum(1 for field in fields_38 if product_data.get(field))
+                    extracted_count = sum(1 for field in fields_15 if product_data.get(field))
                     
-                    print(f"📦 Product {i+1}: {extracted_count}/38 fields extracted")
+                    print(f"📦 Product {i+1}: {extracted_count}/15 fields extracted")
                     print(f"  商品名: {product_data.get('product_name', 'Not detected')}")
+                    print(f"  品番: {product_data.get('product_code', 'Not detected')}")
+                    print(f"  キャラクター名: {product_data.get('character_name', 'Not detected')}")
+                    print(f"  発売予定日: {product_data.get('release_date', 'Not detected')}")
+                    print(f"  希望小売価格: {product_data.get('reference_sales_price', 'Not detected')}")
                     print(f"  JANコード: {product_data.get('jan_code', 'Not detected')}")
-                    print(f"  商品番号: {product_data.get('product_code', 'Not detected')}")
-                    print(f"  参考販売価格: {product_data.get('reference_sales_price', 'Not detected')}")
-                    print(f"  大分類: {product_data.get('major_category', 'Not detected')}")
-                    print(f"  仕入先: {product_data.get('supplier_name', 'Not detected')}")
                 
                 # Create structured_data with first product as main, all products in _products_list
                 if len(structured_products) > 1:
@@ -582,7 +526,7 @@ class OpenAIOCRService:
                 print(f"🔧 EXCEL: FORCING MULTI-PRODUCT from {len(product_rows)} product rows")
                 multiple_products = []
                 for i, product_row in enumerate(product_rows):
-                    # Extract all 38 fields from the product row
+                    # Extract 15 practical fields from the product row
                     product_data = self._extract_all_fields_from_excel_row(product_row, raw_text)
                     if product_data:
                         product_data['product_index'] = i + 1
@@ -607,51 +551,26 @@ class OpenAIOCRService:
                     "total_products_detected": len(multiple_products),
                     "has_multiple_products": True
                 }
-                # Store complete product list for processor with all 38 fields
+                # Store complete product list for processor with 15 practical fields
                 parsed_structured_data["_products_list"] = []
                 for i, p in enumerate(multiple_products):
                     product_dict = {
-                        # Core fields
+                        # 15 Practical Fields
                         "product_name": p.get('product_name'),
-                        "jan_code": p.get('jan_code'),
-                        "description": p.get('description'),
-                        
-                        # 38 Company-Specified Fields
-                        "lot_number": p.get('lot_number'),
-                        "classification": p.get('classification'),
-                        "major_category": p.get('major_category'),
-                        "minor_category": p.get('minor_category'),
-                        "release_date": p.get('release_date'),
                         "product_code": p.get('product_code') or p.get('sku'),
-                        "in_store": p.get('in_store'),
-                        "genre_name": p.get('genre_name'),
-                        "supplier_name": p.get('supplier_name'),
-                        "ip_name": p.get('ip_name'),
                         "character_name": p.get('character_name'),
-                        "reference_sales_price": p.get('reference_sales_price'),
-                        "wholesale_price": p.get('wholesale_price') or p.get('price'),
-                        "wholesale_quantity": p.get('wholesale_quantity'),
-                        "stock": p.get('stock'),
-                        "order_amount": p.get('order_amount'),
-                        "quantity_per_pack": p.get('quantity_per_pack'),
-                        "reservation_release_date": p.get('reservation_release_date'),
-                        "reservation_deadline": p.get('reservation_deadline'),
-                        "reservation_shipping_date": p.get('reservation_shipping_date'),
-                        "case_pack_quantity": p.get('case_pack_quantity'),
+                        "release_date": p.get('release_date'),
+                        "reference_sales_price": p.get('reference_sales_price') or p.get('price'),
+                        "jan_code": p.get('jan_code'),
+                        "inner_box_gtin": p.get('inner_box_gtin'),
                         "single_product_size": p.get('single_product_size'),
+                        "package_size": p.get('package_size'),
                         "inner_box_size": p.get('inner_box_size'),
                         "carton_size": p.get('carton_size'),
-                        "inner_box_gtin": p.get('inner_box_gtin'),
-                        "outer_box_gtin": p.get('outer_box_gtin'),
-                        "protective_film_material": p.get('protective_film_material'),
-                        "country_of_origin": p.get('country_of_origin'),
-                        "target_age": p.get('target_age'),
-                        "image1": p.get('image1'),
-                        "image2": p.get('image2'),
-                        "image3": p.get('image3'),
-                        "image4": p.get('image4'),
-                        "image5": p.get('image5'),
-                        "image6": p.get('image6'),
+                        "quantity_per_pack": p.get('quantity_per_pack'),
+                        "case_pack_quantity": p.get('case_pack_quantity'),
+                        "package_type": p.get('package_type'),
+                        "description": p.get('description'),
                         
                         # Legacy fields
                         "sku": p.get('sku'),
@@ -3396,8 +3315,8 @@ CRITICAL RULES:
         return None
 
     def _extract_all_fields_from_excel_row(self, row_text: str, full_text: str = "") -> Dict[str, Any]:
-        """Excel行から38項目すべてを抽出"""
-        print(f"🔍 Extracting all 38 fields from Excel row: {row_text[:100]}")
+        """Excel行から15項目の実用フィールドを抽出"""
+        print(f"🔍 Extracting 15 practical fields from Excel row: {row_text[:100]}")
         
         product_data = {}
         
@@ -3471,20 +3390,14 @@ CRITICAL RULES:
                     product_data['case_pack_quantity'] = int(carton_match.group(1))
                 break
         
-        # 2. カテゴリとブランド情報
-        # Excelファイルから推測
+        # 2. カテゴリとブランド情報（レガシーフィールド）
         if 'キャラクタースリーブ' in row_text or 'スリーブ' in row_text:
             product_data['category'] = 'トレーディングカードアクセサリー'
-            product_data['major_category'] = 'ホビー・トイ'
-            product_data['minor_category'] = 'トレーディングカードグッズ'
-            product_data['genre_name'] = 'キャラクターグッズ'
         
-        # ブランド情報（全テキストから抽出）
+        # ブランド情報（全テキストから抽出 - レガシーフィールド）
         if 'エンスカイ' in full_text or 'EN-' in row_text:
             product_data['brand'] = 'エンスカイ'
             product_data['manufacturer'] = '株式会社エンスカイ'
-            product_data['ip_name'] = 'エンスカイ'
-            product_data['supplier_name'] = '株式会社エンスカイ'
         
         # 3. 作品名からキャラクター情報を抽出
         character_match = re.search(r'[『「]([^』」]+)[』」]', row_text)
@@ -3509,15 +3422,7 @@ CRITICAL RULES:
         if product_data.get('product_name'):
             product_data['description'] = f"『{product_data.get('character_name', '')}』の{product_data.get('product_name', '')}です。" if product_data.get('character_name') else product_data.get('product_name', '')
         
-        # 5. デフォルト値の設定（日本製が多い）
-        product_data['country_of_origin'] = product_data.get('country_of_origin', '日本')
-        
-        # 6. 在庫・注文関連（Excelにない場合は空）
-        product_data['stock'] = product_data.get('stock')
-        product_data['wholesale_quantity'] = product_data.get('wholesale_quantity')
-        product_data['order_amount'] = product_data.get('order_amount')
-        
-        # 7. サイズ情報（Excelから抽出できる場合）
+        # 5. サイズ情報（Excelから抽出できる場合）
         size_match = re.search(r'(\d+)\s*[×x]\s*(\d+)\s*[×x]?\s*(\d+)?\s*mm', row_text)
         if size_match:
             w, h, d = size_match.groups()
@@ -3525,11 +3430,6 @@ CRITICAL RULES:
                 product_data['single_product_size'] = f"{w}×{h}×{d}mm"
             else:
                 product_data['single_product_size'] = f"{w}×{h}mm"
-        
-        # 8. その他の38項目フィールド（必要に応じて抽出）
-        # lot_number, classification, in_store, reservation_*, inner_box_size, carton_size,
-        # inner_box_gtin, outer_box_gtin, protective_film_material, target_age, image1-6
-        # これらはExcelに存在する場合のみ抽出
         
         print(f"✅ Extracted {len([k for k, v in product_data.items() if v])} fields from Excel row")
         return product_data

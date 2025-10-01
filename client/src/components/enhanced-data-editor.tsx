@@ -34,17 +34,32 @@ export default function EnhancedDataEditor({ isOpen, onClose, item }: EnhancedDa
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Define editable fields in Excel-like format
+  // 15 Practical fields based on actual Japanese product specification sheets
   const editableFields: EditableField[] = [
+    // 基本情報
     { key: 'productName', label: '商品名', type: 'text', required: true },
-    { key: 'sku', label: 'SKU', type: 'text' },
-    { key: 'jan_code', label: 'JANコード', type: 'text' },
-    { key: 'price', label: '価格', type: 'number' },
-    { key: 'stock', label: '在庫数', type: 'number' },
-    { key: 'category', label: 'カテゴリ', type: 'text' },
-    { key: 'brand', label: 'ブランド', type: 'text' },
-    { key: 'manufacturer', label: '製造元', type: 'text' },
-    { key: 'description', label: '商品説明', type: 'textarea' },
+    { key: 'productCode', label: '品番/商品番号', type: 'text' },
+    { key: 'characterName', label: 'キャラクター名', type: 'text' },
+    { key: 'releaseDate', label: '発売予定日', type: 'text' },
+    { key: 'referenceSalesPrice', label: '希望小売価格', type: 'number' },
+    
+    // JANコード/バーコード
+    { key: 'janCode', label: '単品 JANコード', type: 'text' },
+    { key: 'innerBoxGtin', label: 'BOX/内箱 JANコード', type: 'text' },
+    
+    // サイズ情報
+    { key: 'singleProductSize', label: '商品サイズ', type: 'text' },
+    { key: 'packageSize', label: 'パッケージサイズ', type: 'text' },
+    { key: 'innerBoxSize', label: '内箱サイズ', type: 'text' },
+    { key: 'cartonSize', label: 'カートンサイズ', type: 'text' },
+    
+    // 数量・梱包情報
+    { key: 'quantityPerPack', label: '入数', type: 'text' },
+    { key: 'casePackQuantity', label: 'カートン入数/ケース梱入数', type: 'number' },
+    
+    // 商品詳細
+    { key: 'packageType', label: 'パッケージ形態', type: 'text' },
+    { key: 'description', label: 'セット内容・素材・仕様など', type: 'textarea' },
   ];
 
   // Initialize form data when item changes
@@ -52,19 +67,7 @@ export default function EnhancedDataEditor({ isOpen, onClose, item }: EnhancedDa
     if (item) {
       const initialData: Record<string, any> = {};
       editableFields.forEach(field => {
-        // Map API response field names to form field names
-        let value = '';
-        switch (field.key) {
-          case 'productName':
-            value = (item as any).productName || '';
-            break;
-          case 'jan_code':
-            value = (item as any).jan_code || '';
-            break;
-          default:
-            value = (item as any)[field.key] || '';
-        }
-        initialData[field.key] = value;
+        initialData[field.key] = (item as any)[field.key] || '';
       });
       setFormData(initialData);
       setHasChanges(false);
@@ -109,22 +112,23 @@ export default function EnhancedDataEditor({ isOpen, onClose, item }: EnhancedDa
   const handleSave = () => {
     if (!item) return;
     
-    // Convert form data to API format
+    // Convert form data to API format (15 practical fields)
     const updateData: UpdateExtractedData = {
-      product_name: formData.productName,
-      sku: formData.sku,
-      price: formData.price ? parseFloat(formData.price) : undefined,
-      stock: formData.stock ? parseInt(formData.stock) : undefined,
-      category: formData.category,
-      brand: formData.brand,
-      manufacturer: formData.manufacturer,
+      productName: formData.productName,
+      productCode: formData.productCode,
+      characterName: formData.characterName,
+      releaseDate: formData.releaseDate,
+      referenceSalesPrice: formData.referenceSalesPrice ? parseFloat(formData.referenceSalesPrice) : undefined,
+      janCode: formData.janCode,
+      innerBoxGtin: formData.innerBoxGtin,
+      singleProductSize: formData.singleProductSize,
+      packageSize: formData.packageSize,
+      innerBoxSize: formData.innerBoxSize,
+      cartonSize: formData.cartonSize,
+      quantityPerPack: formData.quantityPerPack,
+      casePackQuantity: formData.casePackQuantity ? parseInt(formData.casePackQuantity) : undefined,
+      packageType: formData.packageType,
       description: formData.description,
-      jan_code: formData.jan_code,
-      weight: formData.weight,
-      color: formData.color,
-      material: formData.material,
-      origin: formData.origin,
-      warranty: formData.warranty,
       is_validated: true,
     };
     

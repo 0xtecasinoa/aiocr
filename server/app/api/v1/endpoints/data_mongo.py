@@ -14,63 +14,42 @@ router = APIRouter()
 
 
 def convert_extracted_data_to_dict(item: ExtractedData) -> Dict[str, Any]:
-    """Convert ExtractedData model to dictionary with all 38 fields for frontend."""
+    """Convert ExtractedData model to dictionary with 15 practical fields for frontend."""
     return {
         "id": str(item.id),
         "productName": item.product_name or f"File_{item.uploaded_file_id[:8]}" if item.uploaded_file_id else "Unknown",
         
-        # Legacy fields
-        "sku": item.sku,
-        "price": item.price,
-        "stock": item.stock,
-        "category": item.category,
-        "description": item.description,
-        "brand": getattr(item, 'brand', None),
-        "manufacturer": getattr(item, 'manufacturer', None),
-        "weight": getattr(item, 'weight', None),
-        "color": getattr(item, 'color', None),
-        "material": getattr(item, 'material', None),
-        "origin": getattr(item, 'origin', None),
-        "warranty": getattr(item, 'warranty', None),
-        "dimensions": getattr(item, 'dimensions', None),
-        "specifications": getattr(item, 'specifications', None),
-        
-        # 38 Company-Specified Fields (camelCase for frontend)
-        "lotNumber": getattr(item, 'lot_number', None),
-        "classification": getattr(item, 'classification', None),
-        "majorCategory": getattr(item, 'major_category', None),
-        "minorCategory": getattr(item, 'minor_category', None),
-        "releaseDate": getattr(item, 'release_date', None),
-        "janCode": getattr(item, 'jan_code', None),
-        "productCode": getattr(item, 'product_code', None),
-        "inStore": getattr(item, 'in_store', None),
-        "genreName": getattr(item, 'genre_name', None),
-        "supplierName": getattr(item, 'supplier_name', None),
-        "ipName": getattr(item, 'ip_name', None),
+        # 15 Practical Fields for Japanese Product Specifications
+        # 基本情報
         "characterName": getattr(item, 'character_name', None),
+        "releaseDate": getattr(item, 'release_date', None),
+        "productCode": getattr(item, 'product_code', None),
         "referenceSalesPrice": getattr(item, 'reference_sales_price', None),
-        "wholesalePrice": getattr(item, 'wholesale_price', None),
-        "wholesaleQuantity": getattr(item, 'wholesale_quantity', None),
-        "orderAmount": getattr(item, 'order_amount', None),
-        "quantityPerPack": getattr(item, 'quantity_per_pack', None),
-        "reservationReleaseDate": getattr(item, 'reservation_release_date', None),
-        "reservationDeadline": getattr(item, 'reservation_deadline', None),
-        "reservationShippingDate": getattr(item, 'reservation_shipping_date', None),
-        "casePackQuantity": getattr(item, 'case_pack_quantity', None),
+        
+        # JANコード/バーコード
+        "janCode": getattr(item, 'jan_code', None),
+        "innerBoxGtin": getattr(item, 'inner_box_gtin', None),
+        
+        # サイズ情報
         "singleProductSize": getattr(item, 'single_product_size', None),
+        "packageSize": getattr(item, 'package_size', None),
         "innerBoxSize": getattr(item, 'inner_box_size', None),
         "cartonSize": getattr(item, 'carton_size', None),
-        "innerBoxGtin": getattr(item, 'inner_box_gtin', None),
-        "outerBoxGtin": getattr(item, 'outer_box_gtin', None),
-        "protectiveFilmMaterial": getattr(item, 'protective_film_material', None),
-        "countryOfOrigin": getattr(item, 'country_of_origin', None),
-        "targetAge": getattr(item, 'target_age', None),
-        "image1": getattr(item, 'image1', None),
-        "image2": getattr(item, 'image2', None),
-        "image3": getattr(item, 'image3', None),
-        "image4": getattr(item, 'image4', None),
-        "image5": getattr(item, 'image5', None),
-        "image6": getattr(item, 'image6', None),
+        
+        # 数量・梱包情報
+        "quantityPerPack": getattr(item, 'quantity_per_pack', None),
+        "casePackQuantity": getattr(item, 'case_pack_quantity', None),
+        
+        # 商品詳細
+        "packageType": getattr(item, 'package_type', None),
+        "description": item.description,
+        
+        # Legacy fields (for backward compatibility)
+        "sku": item.sku,
+        "price": item.price,
+        "category": item.category,
+        "brand": getattr(item, 'brand', None),
+        "stock": item.stock,
         
         # System fields
         "confidence_score": item.confidence_score,
@@ -589,68 +568,47 @@ async def update_extracted_data(
                 detail="Not authorized to update this data"
             )
         
-        # camelCase to snake_case mapping for all 38 fields
+        # camelCase to snake_case mapping for 15 practical fields
         field_mapping = {
+            # 基本情報
             'productName': 'product_name',
-            'lotNumber': 'lot_number',
-            'classification': 'classification',
-            'majorCategory': 'major_category',
-            'minorCategory': 'minor_category',
-            'releaseDate': 'release_date',
-            'janCode': 'jan_code',
-            'productCode': 'product_code',
-            'inStore': 'in_store',
-            'genreName': 'genre_name',
-            'supplierName': 'supplier_name',
-            'ipName': 'ip_name',
             'characterName': 'character_name',
+            'releaseDate': 'release_date',
+            'productCode': 'product_code',
             'referenceSalesPrice': 'reference_sales_price',
-            'wholesalePrice': 'wholesale_price',
-            'wholesaleQuantity': 'wholesale_quantity',
-            'stock': 'stock',
-            'orderAmount': 'order_amount',
-            'quantityPerPack': 'quantity_per_pack',
-            'reservationReleaseDate': 'reservation_release_date',
-            'reservationDeadline': 'reservation_deadline',
-            'reservationShippingDate': 'reservation_shipping_date',
-            'casePackQuantity': 'case_pack_quantity',
+            
+            # JANコード/バーコード
+            'janCode': 'jan_code',
+            'innerBoxGtin': 'inner_box_gtin',
+            
+            # サイズ情報
             'singleProductSize': 'single_product_size',
+            'packageSize': 'package_size',
             'innerBoxSize': 'inner_box_size',
             'cartonSize': 'carton_size',
-            'innerBoxGtin': 'inner_box_gtin',
-            'outerBoxGtin': 'outer_box_gtin',
+            
+            # 数量・梱包情報
+            'quantityPerPack': 'quantity_per_pack',
+            'casePackQuantity': 'case_pack_quantity',
+            
+            # 商品詳細
+            'packageType': 'package_type',
             'description': 'description',
-            'protectiveFilmMaterial': 'protective_film_material',
-            'countryOfOrigin': 'country_of_origin',
-            'targetAge': 'target_age',
-            'image1': 'image1',
-            'image2': 'image2',
-            'image3': 'image3',
-            'image4': 'image4',
-            'image5': 'image5',
-            'image6': 'image6',
-            # Legacy fields
+            
+            # Legacy fields (for backward compatibility)
             'sku': 'sku',
             'price': 'price',
             'category': 'category',
             'brand': 'brand',
-            'manufacturer': 'manufacturer',
-            'weight': 'weight',
-            'color': 'color',
-            'material': 'material',
-            'origin': 'origin',
-            'warranty': 'warranty',
+            'stock': 'stock',
         }
         
         # Number fields that need conversion
         number_fields = {
             'referenceSalesPrice': 'float',
-            'wholesalePrice': 'float',
-            'wholesaleQuantity': 'int',
-            'stock': 'int',
-            'orderAmount': 'float',
             'casePackQuantity': 'int',
             'price': 'float',
+            'stock': 'int',
         }
         
         update_fields = {}

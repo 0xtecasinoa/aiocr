@@ -70,46 +70,23 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
   // Initialize form data and find related products
   useEffect(() => {
     if (item && allExtractedData?.data) {
-      // Initialize form data with all 38 fields
+      // Initialize form data with 15 practical fields
       setFormData({
-        lotNumber: (item as any).lotNumber || '',
-        classification: (item as any).classification || '',
-        majorCategory: (item as any).majorCategory || (item as any).category || '',
-        minorCategory: (item as any).minorCategory || '',
-        releaseDate: (item as any).releaseDate || '',
-        janCode: (item as any).janCode || '',
-        productCode: (item as any).productCode || (item as any).sku || '',
-        inStore: (item as any).inStore || '',
-        genreName: (item as any).genreName || '',
-        supplierName: (item as any).supplierName || '',
-        ipName: (item as any).ipName || (item as any).brand || '',
-        characterName: (item as any).characterName || '',
         productName: item.productName || '',
+        productCode: (item as any).productCode || (item as any).sku || '',
+        characterName: (item as any).characterName || '',
+        releaseDate: (item as any).releaseDate || '',
         referenceSalesPrice: (item as any).referenceSalesPrice || '',
-        wholesalePrice: (item as any).wholesalePrice || item.price || '',
-        wholesaleQuantity: (item as any).wholesaleQuantity || '',
-        stock: item.stock || '',
-        orderAmount: (item as any).orderAmount || '',
-        quantityPerPack: (item as any).quantityPerPack || '',
-        reservationReleaseDate: (item as any).reservationReleaseDate || '',
-        reservationDeadline: (item as any).reservationDeadline || '',
-        reservationShippingDate: (item as any).reservationShippingDate || '',
-        casePackQuantity: (item as any).casePackQuantity || '',
-        singleProductSize: (item as any).singleProductSize || (item as any).product_size || (item as any).dimensions || '',
-        innerBoxSize: (item as any).innerBoxSize || (item as any).package_size || '',
-        cartonSize: (item as any).cartonSize || '',
+        janCode: (item as any).janCode || '',
         innerBoxGtin: (item as any).innerBoxGtin || '',
-        outerBoxGtin: (item as any).outerBoxGtin || '',
+        singleProductSize: (item as any).singleProductSize || '',
+        packageSize: (item as any).packageSize || '',
+        innerBoxSize: (item as any).innerBoxSize || '',
+        cartonSize: (item as any).cartonSize || '',
+        quantityPerPack: (item as any).quantityPerPack || '',
+        casePackQuantity: (item as any).casePackQuantity || '',
+        packageType: (item as any).packageType || '',
         description: item.description || '',
-        protectiveFilmMaterial: (item as any).protectiveFilmMaterial || (item as any).packaging_material || (item as any).package_type || '',
-        countryOfOrigin: (item as any).countryOfOrigin || (item as any).origin || '',
-        targetAge: (item as any).targetAge || '',
-        image1: (item as any).image1 || '',
-        image2: (item as any).image2 || '',
-        image3: (item as any).image3 || '',
-        image4: (item as any).image4 || '',
-        image5: (item as any).image5 || '',
-        image6: (item as any).image6 || '',
       });
 
       // Find related products from the same source file
@@ -128,45 +105,32 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
     }
   }, [item, allExtractedData]);
 
-  const editableFields: EditableField[] = [
-    { key: 'lotNumber', label: 'ロット番号', type: 'text' },
-    { key: 'classification', label: '区分', type: 'text' },
-    { key: 'majorCategory', label: '大分類', type: 'text' },
-    { key: 'minorCategory', label: '中分類', type: 'text' },
-    { key: 'releaseDate', label: '発売日', type: 'text' },
-    { key: 'janCode', label: 'JANコード', type: 'text' },
-    { key: 'productCode', label: '商品番号', type: 'text' },
-    { key: 'inStore', label: 'インストア', type: 'text' },
-    { key: 'genreName', label: 'ジャンル名称', type: 'text' },
-    { key: 'supplierName', label: '仕入先', type: 'text' },
-    { key: 'ipName', label: 'メーカー名称', type: 'text' },
-    { key: 'characterName', label: 'キャラクター名(IP名)', type: 'text' },
-    { key: 'productName', label: '商品名称', type: 'text', required: true },
-    { key: 'referenceSalesPrice', label: '参考販売価格', type: 'number' },
-    { key: 'wholesalePrice', label: '卸単価（抜）', type: 'number' },
-    { key: 'wholesaleQuantity', label: '卸可能数', type: 'number' },
-    { key: 'stock', label: '発注数', type: 'number' },
-    { key: 'orderAmount', label: '発注金額', type: 'number' },
-    { key: 'quantityPerPack', label: '入数', type: 'text' },
-    { key: 'reservationReleaseDate', label: '予約解禁日', type: 'text' },
-    { key: 'reservationDeadline', label: '予約締め切り日', type: 'text' },
-    { key: 'reservationShippingDate', label: '予約商品発送予定日', type: 'text' },
-    { key: 'casePackQuantity', label: 'ケース梱入数', type: 'number' },
-    { key: 'singleProductSize', label: '単品サイズ', type: 'text' },
+      // 15 Practical fields based on actual Japanese product specification sheets
+    const editableFields: EditableField[] = [
+    // 基本情報
+    { key: 'productName', label: '商品名', type: 'text', required: true },
+    { key: 'productCode', label: '品番/商品番号', type: 'text' },
+    { key: 'characterName', label: 'キャラクター名', type: 'text' },
+    { key: 'releaseDate', label: '発売予定日', type: 'text' },
+    { key: 'referenceSalesPrice', label: '希望小売価格', type: 'number' },
+    
+    // JANコード/バーコード
+    { key: 'janCode', label: '単品 JANコード', type: 'text' },
+    { key: 'innerBoxGtin', label: 'BOX/内箱 JANコード', type: 'text' },
+    
+    // サイズ情報
+    { key: 'singleProductSize', label: '商品サイズ', type: 'text' },
+    { key: 'packageSize', label: 'パッケージサイズ', type: 'text' },
     { key: 'innerBoxSize', label: '内箱サイズ', type: 'text' },
     { key: 'cartonSize', label: 'カートンサイズ', type: 'text' },
-    { key: 'innerBoxGtin', label: '内箱GTIN', type: 'text' },
-    { key: 'outerBoxGtin', label: '外箱GTIN', type: 'text' },
-    { key: 'description', label: '商品説明', type: 'textarea' },
-    { key: 'protectiveFilmMaterial', label: '機材フィルム', type: 'text' },
-    { key: 'countryOfOrigin', label: '原産国', type: 'text' },
-    { key: 'targetAge', label: '対象年齢', type: 'text' },
-    { key: 'image1', label: '画像1', type: 'text' },
-    { key: 'image2', label: '画像2', type: 'text' },
-    { key: 'image3', label: '画像3', type: 'text' },
-    { key: 'image4', label: '画像4', type: 'text' },
-    { key: 'image5', label: '画像5', type: 'text' },
-    { key: 'image6', label: '画像6', type: 'text' },
+    
+    // 数量・梱包情報
+    { key: 'quantityPerPack', label: '入数', type: 'text' },
+    { key: 'casePackQuantity', label: 'カートン入数/ケース梱入数', type: 'number' },
+    
+    // 商品詳細
+    { key: 'packageType', label: 'パッケージ形態', type: 'text' },
+    { key: 'description', label: 'セット内容・素材・仕様など', type: 'textarea' },
   ];
 
   const handleInputChange = (key: string, value: string) => {
@@ -180,13 +144,13 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
     // Convert and validate data before sending
     const processedData = { ...formData };
     
-    // Convert number fields (camelCase)
-    const numberFields = ['referenceSalesPrice', 'wholesalePrice', 'wholesaleQuantity', 'stock', 'orderAmount', 'casePackQuantity'];
+    // Convert number fields
+    const numberFields = ['referenceSalesPrice', 'casePackQuantity'];
     numberFields.forEach(field => {
       if (processedData[field] === '' || processedData[field] === null || processedData[field] === undefined) {
         processedData[field] = null;
       } else if (typeof processedData[field] === 'string') {
-        const num = field === 'stock' || field === 'wholesaleQuantity' || field === 'casePackQuantity' 
+        const num = field === 'casePackQuantity' 
           ? parseInt(processedData[field], 10) 
           : parseFloat(processedData[field]);
         processedData[field] = isNaN(num) ? null : num;
@@ -201,47 +165,24 @@ export default function DataEditScreen({ item, onBack, onSaveSuccess, onProductS
     setSelectedProduct(product);
     setIsIndividualEditMode(true);
     
-    // Update form data with all 38 fields from selected product with fallbacks
+    // Update form data with 15 practical fields from selected product
     const productData = product as any;
     const newFormData: Record<string, any> = {
-      lotNumber: productData.lotNumber || '',
-      classification: productData.classification || '',
-      majorCategory: productData.majorCategory || productData.category || '',
-      minorCategory: productData.minorCategory || '',
-      releaseDate: productData.releaseDate || '',
-      janCode: productData.janCode || '',
-      productCode: productData.productCode || productData.sku || '',
-      inStore: productData.inStore || '',
-      genreName: productData.genreName || '',
-      supplierName: productData.supplierName || '',
-      ipName: productData.ipName || productData.brand || '',
-      characterName: productData.characterName || '',
       productName: productData.productName || '',
+      productCode: productData.productCode || productData.sku || '',
+      characterName: productData.characterName || '',
+      releaseDate: productData.releaseDate || '',
       referenceSalesPrice: productData.referenceSalesPrice || '',
-      wholesalePrice: productData.wholesalePrice || productData.price || '',
-      wholesaleQuantity: productData.wholesaleQuantity || '',
-      stock: productData.stock || '',
-      orderAmount: productData.orderAmount || '',
-      quantityPerPack: productData.quantityPerPack || '',
-      reservationReleaseDate: productData.reservationReleaseDate || '',
-      reservationDeadline: productData.reservationDeadline || '',
-      reservationShippingDate: productData.reservationShippingDate || '',
-      casePackQuantity: productData.casePackQuantity || '',
-      singleProductSize: productData.singleProductSize || productData.product_size || productData.dimensions || '',
-      innerBoxSize: productData.innerBoxSize || productData.package_size || '',
-      cartonSize: productData.cartonSize || '',
+      janCode: productData.janCode || '',
       innerBoxGtin: productData.innerBoxGtin || '',
-      outerBoxGtin: productData.outerBoxGtin || '',
+      singleProductSize: productData.singleProductSize || '',
+      packageSize: productData.packageSize || '',
+      innerBoxSize: productData.innerBoxSize || '',
+      cartonSize: productData.cartonSize || '',
+      quantityPerPack: productData.quantityPerPack || '',
+      casePackQuantity: productData.casePackQuantity || '',
+      packageType: productData.packageType || '',
       description: productData.description || '',
-      protectiveFilmMaterial: productData.protectiveFilmMaterial || productData.packaging_material || productData.package_type || '',
-      countryOfOrigin: productData.countryOfOrigin || productData.origin || '',
-      targetAge: productData.targetAge || '',
-      image1: productData.image1 || '',
-      image2: productData.image2 || '',
-      image3: productData.image3 || '',
-      image4: productData.image4 || '',
-      image5: productData.image5 || '',
-      image6: productData.image6 || '',
     };
     setFormData(newFormData);
   };
